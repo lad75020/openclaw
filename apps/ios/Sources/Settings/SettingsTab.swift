@@ -423,19 +423,6 @@ struct SettingsTab: View {
         AnyView(
             Section("Device") {
             DisclosureGroup("Features") {
-                self.featureToggle(
-                    "Voice Wake",
-                    isOn: self.$voiceWakeEnabled,
-                    help: "Enables wake-word activation to start a hands-free session.") { newValue in
-                        self.appModel.setVoiceWakeEnabled(newValue)
-                    }
-                self.featureToggle(
-                    "Talk Mode",
-                    isOn: self.$talkEnabled,
-                    help: "Enables voice conversation mode with your connected OpenClaw agent.") { newValue in
-                        self.appModel.setTalkEnabled(newValue)
-                    }
-                self.speechLanguagePicker
                 Picker("Speech to Text", selection: self.$speechTranscriptionBackendRaw) {
                     ForEach(SpeechTranscriptionBackendSetting.allCases) { backend in
                         Text(backend.displayName).tag(backend.rawValue)
@@ -451,11 +438,6 @@ struct SettingsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                self.featureToggle(
-                    "Background Listening",
-                    isOn: self.$talkBackgroundEnabled,
-                    help: "Keeps listening while the app is backgrounded. Uses more battery.")
-
                 NavigationLink {
                     VoiceWakeWordsSettingsView()
                 } label: {
@@ -649,18 +631,6 @@ struct SettingsTab: View {
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private var speechLanguagePicker: some View {
-        Picker("Speech Language", selection: self.$speechLanguageRaw) {
-            ForEach(SpeechLanguageSetting.allCases) { language in
-                Text(language.displayName).tag(language.rawValue)
-            }
-        }
-        Text("Used for speech recognition and talk replies.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
     }
 
     private enum GatewayListMode: Equatable {

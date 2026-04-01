@@ -5,10 +5,26 @@ struct VoiceTab: View {
     @Environment(VoiceWakeManager.self) private var voiceWake
     @AppStorage("voiceWake.enabled") private var voiceWakeEnabled: Bool = false
     @AppStorage("talk.enabled") private var talkEnabled: Bool = false
+    @AppStorage("talk.background.enabled") private var talkBackgroundEnabled: Bool = false
+    @AppStorage(SpeechLanguageSetting.userDefaultsKey) private var speechLanguageRaw: String = SpeechLanguageSetting.english.rawValue
 
     var body: some View {
         NavigationStack {
             List {
+                Section("Controls") {
+                    Toggle("Voice Wake", isOn: self.$voiceWakeEnabled)
+                    Toggle("Talk Mode", isOn: self.$talkEnabled)
+                    Picker("Speech Language", selection: self.$speechLanguageRaw) {
+                        ForEach(SpeechLanguageSetting.allCases) { language in
+                            Text(language.displayName).tag(language.rawValue)
+                        }
+                    }
+                    Text("Used for speech recognition and talk replies.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Toggle("Background Listening", isOn: self.$talkBackgroundEnabled)
+                }
+
                 Section("Status") {
                     LabeledContent("Voice Wake", value: self.voiceWakeEnabled ? "Enabled" : "Disabled")
                     LabeledContent("Listener", value: self.voiceWake.isListening ? "Listening" : "Idle")
@@ -40,6 +56,13 @@ struct VoiceTab: View {
             }
             .onChange(of: self.talkEnabled) { _, newValue in
                 self.appModel.setTalkEnabled(newValue)
+            }
+            .onChange(of: self.speechLanguageRaw) { _, newValue in
+                guard let language = SpeechLanguageSetting(rawValue: newValue) else {
+                    self.speechLanguageRaw = SpeechLanguageSetting.english.rawValue
+                    return
+                }
+                self.appModel.updateSpeechLanguage(language)
             }
         }
     }

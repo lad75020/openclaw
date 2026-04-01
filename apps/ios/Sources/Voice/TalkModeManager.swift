@@ -24,6 +24,147 @@ private final class StreamFailureBox: @unchecked Sendable {
     }
 }
 
+private final class CapturedSpeechAudio: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sampleRate: Double?
+    private var pcmData = Data()
+    private var detectedSpeech = false
+
+    func reset() {
+        self.lock.lock()
+        self.sampleRate = nil
+        self.pcmData.removeAll(keepingCapacity: false)
+        self.detectedSpeech = false
+        self.lock.unlock()
+    }
+
+    func markSpeechDetected() {
+        self.lock.lock()
+        self.detectedSpeech = true
+        self.lock.unlock()
+    }
+
+    var hasDetectedSpeech: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.detectedSpeech
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        let format = buffer.format
+        let channelCount = Int(format.channelCount)
+        let frameCount = Int(buffer.frameLength)
+        guard channelCount > 0, frameCount > 0 else { return }
+
+        var localSampleRate = format.sampleRate
+        var localPCMData = Data(capacity: frameCount * MemoryLayout<Int16>.size)
+
+        if let channelData = buffer.floatChannelData {
+            for frame in 0..<frameCount {
+                var mixed: Float = 0
+                for channel in 0..<channelCount {
+                    mixed += channelData[channel][frame]
+                }
+                mixed /= Float(channelCount)
+                let clamped = max(-1.0, min(1.0, mixed))
+                var sample = Int16(clamped * Float(Int16.max))
+                withUnsafeBytes(of: &sample) { localPCMData.append(contentsOf: $0) }
+            }
+        } else if let channelData = buffer.int16ChannelData {
+            for frame in 0..<frameCount {
+                var mixed = 0
+                for channel in 0..<channelCount {
+                    mixed += Int(channelData[channel][frame])
+                }
+                var sample = Int16(max(Int(Int16.min), min(Int(Int16.max), mixed / channelCount)))
+                withUnsafeBytes(of: &sample) { localPCMData.append(contentsOf: $0) }
+            }
+        } else if let channelData = buffer.int32ChannelData {
+            for frame in 0..<frameCount {
+                var mixed: Int64 = 0
+                for channel in 0..<channelCount {
+                    mixed += Int64(channelData[channel][frame])
+                }
+                let averaged = mixed / Int64(channelCount)
+                let normalized = max(-1.0, min(1.0, Double(averaged) / Double(Int32.max)))
+                var sample = Int16(normalized * Double(Int16.max))
+                withUnsafeBytes(of: &sample) { localPCMData.append(contentsOf: $0) }
+            }
+        } else {
+            localSampleRate = 0
+        }
+
+        guard localSampleRate > 0, !localPCMData.isEmpty else { return }
+
+        self.lock.lock()
+        if self.sampleRate == nil {
+            self.sampleRate = localSampleRate
+        }
+        self.pcmData.append(localPCMData)
+        self.lock.unlock()
+    }
+
+    func makeWAVData() -> Data? {
+        self.lock.lock()
+        let sampleRate = self.sampleRate
+        let pcmData = self.pcmData
+        let detectedSpeech = self.detectedSpeech
+        self.lock.unlock()
+
+        guard detectedSpeech, let sampleRate, !pcmData.isEmpty else { return nil }
+
+        let bytesPerSample: UInt16 = 2
+        let channelCount: UInt16 = 1
+        let dataSize = UInt32(pcmData.count)
+        let byteRate = UInt32(sampleRate) * UInt32(channelCount) * UInt32(bytesPerSample)
+        let blockAlign = channelCount * bytesPerSample
+
+        var wav = Data()
+        wav.append("RIFF".data(using: .ascii)!)
+        var riffChunkSize = UInt32(36) + dataSize
+        withUnsafeBytes(of: &riffChunkSize) { wav.append(contentsOf: $0) }
+        wav.append("WAVE".data(using: .ascii)!)
+        wav.append("fmt ".data(using: .ascii)!)
+        var fmtChunkSize: UInt32 = 16
+        withUnsafeBytes(of: &fmtChunkSize) { wav.append(contentsOf: $0) }
+        var audioFormat: UInt16 = 1
+        withUnsafeBytes(of: &audioFormat) { wav.append(contentsOf: $0) }
+        var channels = channelCount
+        withUnsafeBytes(of: &channels) { wav.append(contentsOf: $0) }
+        var rate = UInt32(sampleRate)
+        withUnsafeBytes(of: &rate) { wav.append(contentsOf: $0) }
+        var wavByteRate = byteRate
+        withUnsafeBytes(of: &wavByteRate) { wav.append(contentsOf: $0) }
+        var wavBlockAlign = blockAlign
+        withUnsafeBytes(of: &wavBlockAlign) { wav.append(contentsOf: $0) }
+        var bitsPerSample: UInt16 = 16
+        withUnsafeBytes(of: &bitsPerSample) { wav.append(contentsOf: $0) }
+        wav.append("data".data(using: .ascii)!)
+        var wavDataSize = dataSize
+        withUnsafeBytes(of: &wavDataSize) { wav.append(contentsOf: $0) }
+        wav.append(pcmData)
+        return wav
+    }
+}
+
+private struct WebSocketTranscriptionEnvelope: Codable {
+    let type: String
+    let id: String
+    let language: String
+    let audio: String
+}
+
+private struct WebSocketTranscriptionResponse: Decodable {
+    let type: String
+    let id: String?
+    let position: Int?
+    let model: String?
+    let language: String?
+    let text: String?
+    let fullText: String?
+    let message: String?
+}
+
 // This file intentionally centralizes talk mode state + behavior.
 // It's large, and splitting would force `private` -> `fileprivate` across many members.
 // We'll refactor into smaller files when the surface stabilizes.
@@ -70,6 +211,7 @@ final class TalkModeManager: NSObject {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var silenceTask: Task<Void, Never>?
+    private let capturedSpeechAudio = CapturedSpeechAudio()
 
     private var lastHeard: Date?
     private var lastTranscript: String = ""
@@ -192,13 +334,15 @@ final class TalkModeManager: NSObject {
             self.statusText = "Microphone permission denied"
             return
         }
-        let speechOk = await Self.requestSpeechPermission()
-        guard speechOk else {
-            self.logger.warning("start blocked: speech permission denied")
-            self.statusText = Self.permissionMessage(
-                kind: "Speech recognition",
-                status: SFSpeechRecognizer.authorizationStatus())
-            return
+        if !self.usesWebSocketTranscription {
+            let speechOk = await Self.requestSpeechPermission()
+            guard speechOk else {
+                self.logger.warning("start blocked: speech permission denied")
+                self.statusText = Self.permissionMessage(
+                    kind: "Speech recognition",
+                    status: SFSpeechRecognizer.authorizationStatus())
+                return
+            }
         }
 
         await self.reloadConfig()
@@ -336,14 +480,16 @@ final class TalkModeManager: NSObject {
                     NSLocalizedDescriptionKey: "Microphone permission denied",
                 ])
             }
-            let speechOk = await Self.requestSpeechPermission()
-            guard speechOk else {
-                self.statusText = Self.permissionMessage(
-                    kind: "Speech recognition",
-                    status: SFSpeechRecognizer.authorizationStatus())
-                throw NSError(domain: "TalkMode", code: 5, userInfo: [
-                    NSLocalizedDescriptionKey: "Speech recognition permission denied",
-                ])
+            if !self.usesWebSocketTranscription {
+                let speechOk = await Self.requestSpeechPermission()
+                guard speechOk else {
+                    self.statusText = Self.permissionMessage(
+                        kind: "Speech recognition",
+                        status: SFSpeechRecognizer.authorizationStatus())
+                    throw NSError(domain: "TalkMode", code: 5, userInfo: [
+                        NSLocalizedDescriptionKey: "Speech recognition permission denied",
+                    ])
+                }
             }
         }
 
@@ -379,14 +525,43 @@ final class TalkModeManager: NSObject {
         self.isPushToTalkActive = false
         self.isListening = false
         self.captureMode = .idle
-        self.stopRecognition()
+        let capturedAudioData = self.usesWebSocketTranscription ? self.capturedSpeechAudio.makeWAVData() : nil
+        self.stopRecognition(resetCapturedAudio: false)
         self.pttTimeoutTask?.cancel()
         self.pttTimeoutTask = nil
         self.pttAutoStopEnabled = false
 
-        let transcript = self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let transcript: String
+        if self.usesWebSocketTranscription {
+            if let capturedAudioData {
+                self.statusText = "Transcribing…"
+                do {
+                    transcript = try await self.transcribeCapturedSpeech(audioData: capturedAudioData)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                } catch {
+                    self.statusText = "Transcription failed: \(error.localizedDescription)"
+                    if self.resumeContinuousAfterPTT {
+                        await self.start()
+                    }
+                    self.resumeContinuousAfterPTT = false
+                    self.activePTTCaptureId = nil
+                    self.capturedSpeechAudio.reset()
+                    let payload = OpenClawTalkPTTStopPayload(
+                        captureId: captureId,
+                        transcript: nil,
+                        status: "error")
+                    self.finishPTTOnce(payload)
+                    return payload
+                }
+            } else {
+                transcript = ""
+            }
+        } else {
+            transcript = self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         self.lastTranscript = ""
         self.lastHeard = nil
+        self.capturedSpeechAudio.reset()
 
         guard !transcript.isEmpty else {
             self.statusText = "Ready"
@@ -478,6 +653,7 @@ final class TalkModeManager: NSObject {
         self.stopRecognition()
         self.lastTranscript = ""
         self.lastHeard = nil
+        self.capturedSpeechAudio.reset()
         self.pttAutoStopEnabled = false
         self.pttTimeoutTask?.cancel()
         self.pttTimeoutTask = nil
@@ -512,6 +688,10 @@ final class TalkModeManager: NSObject {
         #endif
 
         self.stopRecognition()
+        if self.usesWebSocketTranscription {
+            try self.startWebSocketRecognition()
+            return
+        }
         self.speechRecognizer = Self.makeSpeechRecognizer(preferredLocale: self.speechRecognitionLocale)
         guard let recognizer = self.speechRecognizer else {
             throw NSError(domain: "TalkMode", code: 1, userInfo: [
@@ -568,6 +748,9 @@ final class TalkModeManager: NSObject {
                 }
                 if raw >= threshold {
                     self.lastAudioActivity = Date()
+                    if self.usesWebSocketTranscription {
+                        self.capturedSpeechAudio.markSpeechDetected()
+                    }
                 }
             }
         }
@@ -653,7 +836,73 @@ final class TalkModeManager: NSObject {
         }
     }
 
-    private func stopRecognition() {
+    private func startWebSocketRecognition() throws {
+        guard self.speechTranscriptionWebSocketURL != nil else {
+            throw NSError(domain: "TalkMode", code: 8, userInfo: [
+                NSLocalizedDescriptionKey: "Speech WebSocket URL is invalid",
+            ])
+        }
+
+        GatewayDiagnostics.log("talk audio: session \(Self.describeAudioSession())")
+        self.capturedSpeechAudio.reset()
+
+        let input = self.audioEngine.inputNode
+        let format = input.inputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            throw NSError(domain: "TalkMode", code: 3, userInfo: [
+                NSLocalizedDescriptionKey: "Invalid audio input format",
+            ])
+        }
+
+        input.removeTap(onBus: 0)
+        let tapDiagnostics = AudioTapDiagnostics(label: "talk") { [weak self] level in
+            guard let self else { return }
+            Task { @MainActor in
+                let raw = max(0, min(Double(level) * 10.0, 1.0))
+                let next = (self.micLevel * 0.80) + (raw * 0.20)
+                self.micLevel = next
+
+                if self.isListening, !self.isSpeaking, !self.noiseFloorReady {
+                    self.noiseFloorSamples.append(raw)
+                    if self.noiseFloorSamples.count >= 22 {
+                        let sorted = self.noiseFloorSamples.sorted()
+                        let take = max(6, sorted.count / 2)
+                        let slice = sorted.prefix(take)
+                        let avg = slice.reduce(0.0, +) / Double(slice.count)
+                        self.noiseFloor = avg
+                        self.noiseFloorReady = true
+                        self.noiseFloorSamples.removeAll(keepingCapacity: true)
+                    }
+                }
+
+                let threshold: Double = if let floor = self.noiseFloor, self.noiseFloorReady {
+                    min(0.35, max(0.12, floor + 0.10))
+                } else {
+                    0.18
+                }
+                if raw >= threshold {
+                    self.lastAudioActivity = Date()
+                    self.capturedSpeechAudio.markSpeechDetected()
+                }
+            }
+        }
+        self.audioTapDiagnostics = tapDiagnostics
+        let tapBlock = Self.makeAudioTapAppendCallback(
+            capturedSpeechAudio: self.capturedSpeechAudio,
+            diagnostics: tapDiagnostics)
+        input.installTap(onBus: 0, bufferSize: 2048, format: format, block: tapBlock)
+        self.inputTapInstalled = true
+
+        self.audioEngine.prepare()
+        try self.audioEngine.start()
+        self.loggedPartialThisCycle = false
+        GatewayDiagnostics.log(
+            "talk speech: websocket capture started mode=\(String(describing: self.captureMode)) "
+                + "engineRunning=\(self.audioEngine.isRunning)"
+        )
+    }
+
+    private func stopRecognition(resetCapturedAudio: Bool = true) {
         self.recognitionTask?.cancel()
         self.recognitionTask = nil
         self.recognitionRequest?.endAudio()
@@ -670,6 +919,9 @@ final class TalkModeManager: NSObject {
         }
         self.audioEngine.stop()
         self.speechRecognizer = nil
+        if resetCapturedAudio {
+            self.capturedSpeechAudio.reset()
+        }
     }
 
     private nonisolated static func makeAudioTapAppendCallback(
@@ -682,10 +934,20 @@ final class TalkModeManager: NSObject {
         }
     }
 
+    private nonisolated static func makeAudioTapAppendCallback(
+        capturedSpeechAudio: CapturedSpeechAudio,
+        diagnostics: AudioTapDiagnostics) -> AVAudioNodeTapBlock
+    {
+        { buffer, _ in
+            capturedSpeechAudio.append(buffer)
+            diagnostics.onBuffer(buffer)
+        }
+    }
+
     private func handleTranscript(transcript: String, isFinal: Bool) async {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         let ttsActive = self.isSpeechOutputActive
-        if ttsActive, self.interruptOnSpeech {
+        if ttsActive, self.supportsSpeechInterruptCapture {
             if self.shouldInterrupt(with: trimmed) {
                 self.stopSpeaking()
             }
@@ -726,6 +988,13 @@ final class TalkModeManager: NSObject {
     private func checkSilence() async {
         if self.captureMode == .continuous {
             guard self.isListening, !self.isSpeechOutputActive else { return }
+            if self.usesWebSocketTranscription {
+                guard self.capturedSpeechAudio.hasDetectedSpeech else { return }
+                guard let lastActivity = self.lastAudioActivity else { return }
+                if Date().timeIntervalSince(lastActivity) < self.silenceWindow { return }
+                await self.processCapturedSpeech(restartAfter: true)
+                return
+            }
             let transcript = self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !transcript.isEmpty else { return }
             let lastActivity = [self.lastHeard, self.lastAudioActivity].compactMap { $0 }.max()
@@ -737,6 +1006,13 @@ final class TalkModeManager: NSObject {
 
         guard self.captureMode == .pushToTalk, self.pttAutoStopEnabled else { return }
         guard self.isListening, !self.isSpeaking, self.isPushToTalkActive else { return }
+        if self.usesWebSocketTranscription {
+            guard self.capturedSpeechAudio.hasDetectedSpeech else { return }
+            guard let lastActivity = self.lastAudioActivity else { return }
+            if Date().timeIntervalSince(lastActivity) < self.silenceWindow { return }
+            _ = await self.endPushToTalk()
+            return
+        }
         let transcript = self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !transcript.isEmpty else { return }
         let lastActivity = [self.lastHeard, self.lastAudioActivity].compactMap { $0 }.max()
@@ -765,6 +1041,111 @@ final class TalkModeManager: NSObject {
         guard let continuation = self.pttCompletion else { return }
         self.pttCompletion = nil
         continuation.resume(returning: payload)
+    }
+
+    private func processCapturedSpeech(restartAfter: Bool) async {
+        self.isListening = false
+        self.captureMode = .idle
+        self.statusText = "Transcribing…"
+        self.lastTranscript = ""
+        self.lastHeard = nil
+
+        let capturedAudioData = self.capturedSpeechAudio.makeWAVData()
+        self.stopRecognition(resetCapturedAudio: false)
+        self.capturedSpeechAudio.reset()
+
+        guard let capturedAudioData else {
+            self.statusText = "Listening"
+            if restartAfter {
+                await self.start()
+            }
+            return
+        }
+
+        do {
+            let transcript = try await self.transcribeCapturedSpeech(audioData: capturedAudioData)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !transcript.isEmpty else {
+                self.statusText = "Listening"
+                if restartAfter {
+                    await self.start()
+                }
+                return
+            }
+            await self.processTranscript(transcript, restartAfter: restartAfter)
+        } catch {
+            self.statusText = "Transcription failed: \(error.localizedDescription)"
+            self.logger.error("websocket transcription failed: \(error.localizedDescription, privacy: .public)")
+            if restartAfter {
+                await self.start()
+            }
+        }
+    }
+
+    private func transcribeCapturedSpeech(audioData: Data) async throws -> String {
+        guard let url = self.speechTranscriptionWebSocketURL else {
+            throw NSError(domain: "TalkMode", code: 9, userInfo: [
+                NSLocalizedDescriptionKey: "Speech WebSocket URL is invalid",
+            ])
+        }
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: url)
+        task.resume()
+        defer {
+            task.cancel(with: .normalClosure, reason: nil)
+            session.invalidateAndCancel()
+        }
+
+        let requestID = UUID().uuidString
+        let payload = WebSocketTranscriptionEnvelope(
+            type: "transcribe",
+            id: requestID,
+            language: self.preferredSpeechLanguage.rawValue,
+            audio: "data:audio/wav;base64,\(audioData.base64EncodedString())")
+        let requestData = try JSONEncoder().encode(payload)
+        guard let requestString = String(data: requestData, encoding: .utf8) else {
+            throw NSError(domain: "TalkMode", code: 10, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to encode transcription request",
+            ])
+        }
+
+        try await task.send(.string(requestString))
+
+        var latestTranscript = ""
+        while true {
+            let message = try await task.receive()
+            let messageData: Data
+            switch message {
+            case let .data(data):
+                messageData = data
+            case let .string(text):
+                guard let data = text.data(using: .utf8) else { continue }
+                messageData = data
+            @unknown default:
+                continue
+            }
+
+            let response = try JSONDecoder().decode(WebSocketTranscriptionResponse.self, from: messageData)
+            switch response.type {
+            case "queued":
+                if let position = response.position {
+                    self.statusText = "Queued (\(position))…"
+                }
+            case "start":
+                self.statusText = "Transcribing…"
+            case "delta":
+                latestTranscript = response.fullText ?? response.text ?? latestTranscript
+            case "done":
+                return (response.text ?? latestTranscript).trimmingCharacters(in: .whitespacesAndNewlines)
+            case "error":
+                throw NSError(domain: "TalkMode", code: 11, userInfo: [
+                    NSLocalizedDescriptionKey: response.message ?? "WebSocket transcription failed",
+                ])
+            default:
+                continue
+            }
+        }
     }
 
     private func processTranscript(_ transcript: String, restartAfter: Bool) async {
@@ -1076,7 +1457,7 @@ final class TalkModeManager: NSObject {
                 let client = ElevenLabsTTSClient(apiKey: apiKey)
                 let rawStream = client.streamSynthesize(voiceId: voiceId, request: request)
 
-                if self.interruptOnSpeech {
+                if self.supportsSpeechInterruptCapture {
                     do {
                         try self.startRecognition()
                     } catch {
@@ -1118,7 +1499,7 @@ final class TalkModeManager: NSObject {
             } else {
                 self.logger.warning("tts unavailable; falling back to system voice (missing key or voiceId)")
                 GatewayDiagnostics.log("talk tts: provider=system (missing key or voiceId)")
-                if self.interruptOnSpeech {
+                if self.supportsSpeechInterruptCapture {
                     do {
                         try self.startRecognition()
                     } catch {
@@ -1134,7 +1515,7 @@ final class TalkModeManager: NSObject {
                 "tts failed: \(error.localizedDescription, privacy: .public); falling back to system voice")
             GatewayDiagnostics.log("talk tts: provider=system (error) msg=\(error.localizedDescription)")
             do {
-                if self.interruptOnSpeech {
+                if self.supportsSpeechInterruptCapture {
                     do {
                         try self.startRecognition()
                     } catch {
@@ -1202,6 +1583,25 @@ final class TalkModeManager: NSObject {
 
     private var preferredSpeechLanguage: SpeechLanguageSetting {
         GatewaySettingsStore.loadSpeechLanguage()
+    }
+
+    private var speechTranscriptionBackend: SpeechTranscriptionBackendSetting {
+        GatewaySettingsStore.loadSpeechTranscriptionBackend()
+    }
+
+    private var usesWebSocketTranscription: Bool {
+        self.speechTranscriptionBackend == .websocket
+    }
+
+    private var speechTranscriptionWebSocketURL: URL? {
+        let rawValue = GatewaySettingsStore.loadSpeechTranscriptionWebSocketURL()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rawValue.isEmpty else { return nil }
+        return URL(string: rawValue)
+    }
+
+    private var supportsSpeechInterruptCapture: Bool {
+        self.interruptOnSpeech && !self.usesWebSocketTranscription
     }
 
     private var speechRecognitionLocale: Locale {
@@ -1318,7 +1718,7 @@ final class TalkModeManager: NSObject {
     }
 
     private func startIncrementalSpeechTask() {
-        if self.interruptOnSpeech {
+        if self.supportsSpeechInterruptCapture {
             do {
                 try self.startRecognition()
             } catch {

@@ -24,6 +24,10 @@ struct SettingsTab: View {
     @AppStorage("talk.button.enabled") private var talkButtonEnabled: Bool = true
     @AppStorage("talk.background.enabled") private var talkBackgroundEnabled: Bool = false
     @AppStorage(SpeechLanguageSetting.userDefaultsKey) private var speechLanguageRaw: String = SpeechLanguageSetting.english.rawValue
+    @AppStorage(SpeechTranscriptionBackendSetting.backendUserDefaultsKey)
+    private var speechTranscriptionBackendRaw: String = SpeechTranscriptionBackendSetting.ios.rawValue
+    @AppStorage(SpeechTranscriptionBackendSetting.websocketURLUserDefaultsKey)
+    private var speechTranscriptionWebSocketURL: String = SpeechTranscriptionBackendSetting.defaultWebSocketURLString
     @AppStorage("camera.enabled") private var cameraEnabled: Bool = true
     @AppStorage("location.enabledMode") private var locationEnabledModeRaw: String = OpenClawLocationMode.off.rawValue
     @AppStorage("screen.preventSleep") private var preventSleep: Bool = true
@@ -82,54 +86,54 @@ struct SettingsTab: View {
             self.deviceSettingsSection
         }
         let titledForm = baseForm.navigationTitle("Settings")
-
-        return titledForm
-            .toolbar {
-                if self.showsCloseButton {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            self.dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                        }
-                        .accessibilityLabel("Close")
+        let toolbarForm = titledForm.toolbar {
+            if self.showsCloseButton {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        self.dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Close")
                 }
             }
-            .alert("Reset Onboarding?", isPresented: self.$showResetOnboardingAlert) {
-                Button("Reset", role: .destructive) {
-                    self.resetOnboarding()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text(
-                    "This will disconnect, clear saved gateway connection + credentials, "
-                        + "and reopen the onboarding wizard."
-                )
+        }
+        let resetAlertForm = toolbarForm.alert("Reset Onboarding?", isPresented: self.$showResetOnboardingAlert) {
+            Button("Reset", role: .destructive) {
+                self.resetOnboarding()
             }
-            .alert(item: self.$activeFeatureHelp) { help in
-                Alert(
-                    title: Text(help.title),
-                    message: Text(help.message),
-                    dismissButton: .default(Text("OK")))
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This will disconnect, clear saved gateway connection + credentials, "
+                    + "and reopen the onboarding wizard."
+            )
+        }
+        let helpAlertForm = resetAlertForm.alert(item: self.$activeFeatureHelp) { help in
+            Alert(
+                title: Text(help.title),
+                message: Text(help.message),
+                dismissButton: .default(Text("OK")))
+        }
+        let appearForm = helpAlertForm.onAppear {
+            self.lastLocationModeRaw = self.locationEnabledModeRaw
+            self.syncManualPortText()
+            let trimmedInstanceId = self.instanceId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedInstanceId.isEmpty {
+                self.gatewayToken = GatewaySettingsStore.loadGatewayToken(instanceId: trimmedInstanceId) ?? ""
+                self.gatewayPassword = GatewaySettingsStore.loadGatewayPassword(instanceId: trimmedInstanceId) ?? ""
             }
-            .onAppear {
-                self.lastLocationModeRaw = self.locationEnabledModeRaw
-                self.syncManualPortText()
-                let trimmedInstanceId = self.instanceId.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmedInstanceId.isEmpty {
-                    self.gatewayToken = GatewaySettingsStore.loadGatewayToken(instanceId: trimmedInstanceId) ?? ""
-                    self.gatewayPassword = GatewaySettingsStore.loadGatewayPassword(instanceId: trimmedInstanceId) ?? ""
-                }
-                self.defaultShareInstruction = ShareToAgentSettings.loadDefaultInstruction()
-                self.appModel.refreshLastShareEventFromRelay()
-                // Keep setup front-and-center when disconnected; keep things compact once connected.
-                self.gatewayExpanded = !self.isGatewayConnected
-                self.selectedAgentPickerId = self.appModel.selectedAgentId ?? ""
-                if self.isGatewayConnected {
-                    self.appModel.reloadTalkConfig()
-                }
+            self.defaultShareInstruction = ShareToAgentSettings.loadDefaultInstruction()
+            self.appModel.refreshLastShareEventFromRelay()
+            // Keep setup front-and-center when disconnected; keep things compact once connected.
+            self.gatewayExpanded = !self.isGatewayConnected
+            self.selectedAgentPickerId = self.appModel.selectedAgentId ?? ""
+            if self.isGatewayConnected {
+                self.appModel.reloadTalkConfig()
             }
+        }
+
+        return appearForm
             .onChange(of: self.selectedAgentPickerId) { _, newValue in
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.appModel.setSelectedAgentId(trimmed.isEmpty ? nil : trimmed)
@@ -167,6 +171,16 @@ struct SettingsTab: View {
                     return
                 }
                 self.appModel.updateSpeechLanguage(language)
+            }
+            .onChange(of: self.speechTranscriptionBackendRaw) { _, newValue in
+                guard let backend = SpeechTranscriptionBackendSetting(rawValue: newValue) else {
+                    self.speechTranscriptionBackendRaw = SpeechTranscriptionBackendSetting.ios.rawValue
+                    return
+                }
+                self.appModel.updateSpeechTranscriptionBackend(backend)
+            }
+            .onChange(of: self.speechTranscriptionWebSocketURL) { _, newValue in
+                self.appModel.updateSpeechTranscriptionWebSocketURL(newValue)
             }
             .onChange(of: self.manualGatewayPort) { _, _ in
                 self.syncManualPortText()
@@ -422,6 +436,21 @@ struct SettingsTab: View {
                         self.appModel.setTalkEnabled(newValue)
                     }
                 self.speechLanguagePicker
+                Picker("Speech to Text", selection: self.$speechTranscriptionBackendRaw) {
+                    ForEach(SpeechTranscriptionBackendSetting.allCases) { backend in
+                        Text(backend.displayName).tag(backend.rawValue)
+                    }
+                }
+                if self.speechTranscriptionBackendRaw == SpeechTranscriptionBackendSetting.websocket.rawValue {
+                    TextField("Speech WebSocket URL", text: self.$speechTranscriptionWebSocketURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                    Text("Talk Mode uses the configured WebSocket for transcription. Voice Wake continues to use iOS speech recognition.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 self.featureToggle(
                     "Background Listening",
                     isOn: self.$talkBackgroundEnabled,

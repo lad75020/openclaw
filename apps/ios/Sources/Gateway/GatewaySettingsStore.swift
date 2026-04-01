@@ -36,6 +36,26 @@ enum SpeechLanguageSetting: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum SpeechTranscriptionBackendSetting: String, CaseIterable, Identifiable, Sendable {
+    case ios
+    case websocket
+
+    static let backendUserDefaultsKey = "talk.transcription.backend"
+    static let websocketURLUserDefaultsKey = "talk.transcription.websocketURL"
+    static let defaultWebSocketURLString = "wss://whisper.dubertrand.fr"
+
+    var id: String { self.rawValue }
+
+    var displayName: String {
+        switch self {
+        case .ios:
+            return "iOS"
+        case .websocket:
+            return "WebSocket"
+        }
+    }
+}
+
 enum GatewaySettingsStore {
     private static let gatewayService = "ai.openclaw.gateway"
     private static let nodeService = "ai.openclaw.node"
@@ -77,6 +97,36 @@ enum GatewaySettingsStore {
 
     static func saveSpeechLanguage(_ language: SpeechLanguageSetting, defaults: UserDefaults = .standard) {
         defaults.set(language.rawValue, forKey: SpeechLanguageSetting.userDefaultsKey)
+    }
+
+    static func loadSpeechTranscriptionBackend(
+        defaults: UserDefaults = .standard
+    ) -> SpeechTranscriptionBackendSetting {
+        let rawValue = defaults.string(forKey: SpeechTranscriptionBackendSetting.backendUserDefaultsKey)
+            ?? SpeechTranscriptionBackendSetting.ios.rawValue
+        return SpeechTranscriptionBackendSetting(rawValue: rawValue) ?? .ios
+    }
+
+    static func saveSpeechTranscriptionBackend(
+        _ backend: SpeechTranscriptionBackendSetting,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(backend.rawValue, forKey: SpeechTranscriptionBackendSetting.backendUserDefaultsKey)
+    }
+
+    static func loadSpeechTranscriptionWebSocketURL(defaults: UserDefaults = .standard) -> String {
+        let rawValue = defaults.string(forKey: SpeechTranscriptionBackendSetting.websocketURLUserDefaultsKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let rawValue, !rawValue.isEmpty {
+            return rawValue
+        }
+        return SpeechTranscriptionBackendSetting.defaultWebSocketURLString
+    }
+
+    static func saveSpeechTranscriptionWebSocketURL(_ urlString: String, defaults: UserDefaults = .standard) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.isEmpty ? SpeechTranscriptionBackendSetting.defaultWebSocketURLString : trimmed
+        defaults.set(value, forKey: SpeechTranscriptionBackendSetting.websocketURLUserDefaultsKey)
     }
 
     static func loadStableInstanceID() -> String? {

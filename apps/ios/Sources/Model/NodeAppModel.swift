@@ -530,6 +530,22 @@ final class NodeAppModel {
         }
     }
 
+    func updateSpeechTranscriptionBackend(_ backend: SpeechTranscriptionBackendSetting) {
+        GatewaySettingsStore.saveSpeechTranscriptionBackend(backend)
+
+        let talkEnabled = UserDefaults.standard.bool(forKey: "talk.enabled")
+        guard talkEnabled else { return }
+        self.setTalkEnabled(true)
+    }
+
+    func updateSpeechTranscriptionWebSocketURL(_ urlString: String) {
+        GatewaySettingsStore.saveSpeechTranscriptionWebSocketURL(urlString)
+
+        let talkEnabled = UserDefaults.standard.bool(forKey: "talk.enabled")
+        guard talkEnabled else { return }
+        self.setTalkEnabled(true)
+    }
+
     func requestLocationPermissions(mode: OpenClawLocationMode) async -> Bool {
         guard mode != .off else { return true }
         let status = await self.locationService.ensureAuthorization(mode: mode)

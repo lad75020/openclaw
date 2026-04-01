@@ -175,9 +175,11 @@ struct RootIPad: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("OpenClaw")
                         .font(.system(size: 30, weight: .bold, design: .rounded))
-                    Text("iPad workspace")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let gatewayHeaderName = self.gatewayHeaderName {
+                        Text(gatewayHeaderName)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 StatusPill(
@@ -193,11 +195,7 @@ struct RootIPad: View {
                         }
                     })
 
-                self.connectionCard
-
                 self.panelPicker
-
-                self.gatewayListCard
             }
             .padding(24)
         }
@@ -395,6 +393,19 @@ struct RootIPad: View {
     private var chatPanelIdentity: String {
         let gatewayID = (self.appModel.connectedGatewayID ?? "offline").trimmingCharacters(in: .whitespacesAndNewlines)
         return "\(gatewayID)|\(self.appModel.chatSessionKey)"
+    }
+
+    private var gatewayHeaderName: String? {
+        let rawValue = self.normalized(self.appModel.gatewayServerName)
+            ?? self.normalized(self.appModel.gatewayRemoteAddress)
+        guard let rawValue else { return nil }
+        let host = rawValue
+            .split(separator: ":")
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        guard let host, !host.isEmpty else { return nil }
+        return host.split(separator: ".", maxSplits: 1).first.map(String.init)
     }
 
     private func sidebarWidth(for totalWidth: CGFloat) -> CGFloat {

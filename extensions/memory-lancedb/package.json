@@ -1,6 +1,10 @@
 {
   "name": "@openclaw/memory-lancedb",
+<<<<<<< HEAD
   "version": "2026.3.31",
+=======
+  "version": "2026.4.1-beta.1",
+>>>>>>> main
   "description": "OpenClaw LanceDB-backed long-term memory plugin with auto-recall/capture",
   "type": "module",
   "dependencies": {

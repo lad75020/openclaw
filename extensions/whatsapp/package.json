@@ -1,6 +1,10 @@
 {
   "name": "@openclaw/whatsapp",
+<<<<<<< HEAD
   "version": "2026.3.31",
+=======
+  "version": "2026.4.1-beta.1",
+>>>>>>> main
   "description": "OpenClaw WhatsApp channel plugin",
   "type": "module",
   "dependencies": {
@@ -11,7 +15,11 @@
     "openclaw": "workspace:*"
   },
   "peerDependencies": {
+<<<<<<< HEAD
     "openclaw": ">=2026.3.31"
+=======
+    "openclaw": ">=2026.4.1-beta.1"
+>>>>>>> main
   },
   "peerDependenciesMeta": {
     "openclaw": {

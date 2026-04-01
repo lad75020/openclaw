@@ -1,6 +1,10 @@
 {
   "name": "@openclaw/qqbot",
+<<<<<<< HEAD
   "version": "2026.3.22",
+=======
+  "version": "2026.4.1-beta.1",
+>>>>>>> main
   "private": false,
   "description": "OpenClaw QQ Bot channel plugin",
   "type": "module",
@@ -14,7 +18,11 @@
     "openclaw": "workspace:*"
   },
   "peerDependencies": {
+<<<<<<< HEAD
     "openclaw": ">=2026.3.22"
+=======
+    "openclaw": ">=2026.4.1-beta.1"
+>>>>>>> main
   },
   "peerDependenciesMeta": {
     "openclaw": {

@@ -46,6 +46,16 @@ OpenClaw has three public release lanes:
   `node --import tsx scripts/openclaw-npm-postpublish-verify.ts YYYY.M.D`
   (or the matching beta/correction version) to verify the published registry
   install path in a fresh temp prefix
+<<<<<<< HEAD
+=======
+- Maintainer release automation now uses preflight-then-promote:
+  - real npm publish must pass a successful npm `preflight_run_id`
+  - public `macOS Release` is validation-only
+  - real private mac publish must pass successful private mac
+    `preflight_run_id` and `validate_run_id`
+  - the real publish paths promote prepared artifacts instead of rebuilding
+    them again
+>>>>>>> main
 - For stable correction releases like `YYYY.M.D-N`, the post-publish verifier
   also checks the same temp-prefix upgrade path from `YYYY.M.D` to `YYYY.M.D-N`
   so release corrections cannot silently leave older global installs on the

@@ -15,6 +15,10 @@ import {
   isTelegramExecApprovalClientEnabled,
   resolveTelegramExecApprovalTarget,
 } from "./exec-approvals.js";
+<<<<<<< HEAD
+=======
+import { normalizeTelegramChatId, parseTelegramTarget } from "./targets.js";
+>>>>>>> main
 
 type ApprovalRequest = ExecApprovalRequest | PluginApprovalRequest;
 type TelegramOriginTarget = { to: string; threadId?: number; accountId?: string };
@@ -42,6 +46,7 @@ function toExecLikeRequest(request: ApprovalRequest): ExecApprovalRequest {
   };
 }
 
+<<<<<<< HEAD
 function resolveRequestSessionTarget(params: {
   cfg: OpenClawConfig;
   request: ApprovalRequest;
@@ -78,6 +83,25 @@ function resolveTurnSourceTelegramOriginTarget(params: {
       ? params.request.request.turnSourceThreadId
       : typeof params.request.request.turnSourceThreadId === "string"
         ? Number.parseInt(params.request.request.turnSourceThreadId, 10)
+=======
+function resolveTurnSourceTelegramOriginTarget(
+  request: ApprovalRequest,
+): TelegramOriginTarget | null {
+  const turnSourceChannel = request.request.turnSourceChannel?.trim().toLowerCase() || "";
+  const rawTurnSourceTo = request.request.turnSourceTo?.trim() || "";
+  const parsedTurnSourceTarget = rawTurnSourceTo ? parseTelegramTarget(rawTurnSourceTo) : null;
+  const turnSourceTo = normalizeTelegramChatId(parsedTurnSourceTarget?.chatId ?? rawTurnSourceTo);
+  if (turnSourceChannel !== "telegram" || !turnSourceTo) {
+    return null;
+  }
+  const rawThreadId =
+    request.request.turnSourceThreadId ?? parsedTurnSourceTarget?.messageThreadId ?? undefined;
+  const threadId =
+    typeof rawThreadId === "number"
+      ? rawThreadId
+      : typeof rawThreadId === "string"
+        ? Number.parseInt(rawThreadId, 10)
+>>>>>>> main
         : undefined;
   return {
     to: turnSourceTo,

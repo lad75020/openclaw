@@ -404,26 +404,22 @@ export function saveTaskRegistryStateToSqlite(snapshot: TaskRegistryStoreSnapsho
 export function upsertTaskRegistryRecordToSqlite(task: TaskRecord) {
   const store = openTaskRegistryDatabase();
   store.statements.upsertRow.run(bindTaskRecord(task));
-  ensureTaskRegistryPermissions(store.path);
 }
 
 export function deleteTaskRegistryRecordFromSqlite(taskId: string) {
   const store = openTaskRegistryDatabase();
   store.statements.deleteRow.run(taskId);
   store.statements.deleteDeliveryState.run(taskId);
-  ensureTaskRegistryPermissions(store.path);
 }
 
 export function upsertTaskDeliveryStateToSqlite(state: TaskDeliveryState) {
   const store = openTaskRegistryDatabase();
   store.statements.replaceDeliveryState.run(bindTaskDeliveryState(state));
-  ensureTaskRegistryPermissions(store.path);
 }
 
 export function deleteTaskDeliveryStateFromSqlite(taskId: string) {
   const store = openTaskRegistryDatabase();
   store.statements.deleteDeliveryState.run(taskId);
-  ensureTaskRegistryPermissions(store.path);
 }
 
 export function closeTaskRegistrySqliteStore() {

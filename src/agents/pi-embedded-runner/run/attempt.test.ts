@@ -3,7 +3,6 @@ import { resolveHeartbeatPrompt } from "../../../auto-reply/heartbeat.js";
 import type { OpenClawConfig } from "../../../config/config.js";
 import {
   isOllamaCompatProvider,
-  resolveOllamaBaseUrlForRun,
   resolveOllamaCompatNumCtxEnabled,
   shouldInjectOllamaCompatNumCtx,
   wrapOllamaCompatNumCtx,

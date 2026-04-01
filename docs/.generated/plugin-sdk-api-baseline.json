@@ -154,7 +154,11 @@
           "exportName": "ChannelMessageActionAdapter",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 526,
+=======
+            "line": 556,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -163,7 +167,11 @@
           "exportName": "ChannelMessageActionContext",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 492,
+=======
+            "line": 520,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1170,7 +1178,11 @@
           "exportName": "BaseProbeResult",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 569,
+=======
+            "line": 599,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1179,7 +1191,11 @@
           "exportName": "BaseTokenResolution",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 575,
+=======
+            "line": 605,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1224,7 +1240,11 @@
           "exportName": "ChannelMessageActionAdapter",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 526,
+=======
+            "line": 556,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1233,7 +1253,11 @@
           "exportName": "ChannelMessageActionContext",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 492,
+=======
+            "line": 520,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1752,7 +1776,11 @@
           "exportName": "BaseProbeResult",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 569,
+=======
+            "line": 599,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1761,7 +1789,11 @@
           "exportName": "BaseTokenResolution",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 575,
+=======
+            "line": 605,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1797,7 +1829,11 @@
           "exportName": "ChannelAgentPromptAdapter",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 465,
+=======
+            "line": 493,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1977,7 +2013,11 @@
           "exportName": "ChannelDirectoryEntry",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 479,
+=======
+            "line": 507,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -1986,7 +2026,11 @@
           "exportName": "ChannelDirectoryEntryKind",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 477,
+=======
+            "line": 505,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -2130,7 +2174,11 @@
           "exportName": "ChannelMessageActionAdapter",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 526,
+=======
+            "line": 556,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -2139,7 +2187,11 @@
           "exportName": "ChannelMessageActionContext",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 492,
+=======
+            "line": 520,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -2274,7 +2326,11 @@
           "exportName": "ChannelPollContext",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 557,
+=======
+            "line": 587,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -2283,7 +2339,11 @@
           "exportName": "ChannelPollResult",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 548,
+=======
+            "line": 578,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -2427,7 +2487,11 @@
           "exportName": "ChannelToolSend",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 519,
+=======
+            "line": 549,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },
@@ -2683,7 +2747,11 @@
           "exportName": "buildCommandsMessage",
           "kind": "function",
           "source": {
+<<<<<<< HEAD
             "line": 1073,
+=======
+            "line": 1076,
+>>>>>>> main
             "path": "src/auto-reply/status.ts"
           }
         },
@@ -2692,7 +2760,11 @@
           "exportName": "buildCommandsMessagePaginated",
           "kind": "function",
           "source": {
+<<<<<<< HEAD
             "line": 1082,
+=======
+            "line": 1085,
+>>>>>>> main
             "path": "src/auto-reply/status.ts"
           }
         },
@@ -2728,7 +2800,11 @@
           "exportName": "buildHelpMessage",
           "kind": "function",
           "source": {
+<<<<<<< HEAD
             "line": 868,
+=======
+            "line": 871,
+>>>>>>> main
             "path": "src/auto-reply/status.ts"
           }
         },
@@ -3738,7 +3814,11 @@
           "exportName": "ChannelMessageActionContext",
           "kind": "type",
           "source": {
+<<<<<<< HEAD
             "line": 492,
+=======
+            "line": 520,
+>>>>>>> main
             "path": "src/channels/plugins/types.core.ts"
           }
         },

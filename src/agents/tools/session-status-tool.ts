@@ -23,10 +23,15 @@ import {
   resolveAgentIdFromSessionKey,
 } from "../../routing/session-key.js";
 import { applyModelOverrideToSessionEntry } from "../../sessions/model-overrides.js";
+<<<<<<< HEAD
 import { listTasksForSessionKey } from "../../tasks/task-registry.js";
 import { resolveAgentConfig, resolveAgentDir } from "../agent-scope.js";
 import { formatUserTime, resolveUserTimeFormat, resolveUserTimezone } from "../date-time.js";
 import { resolveModelAuthLabel } from "../model-auth-label.js";
+=======
+import { buildTaskStatusSnapshotForRelatedSessionKeyForOwner } from "../../tasks/task-owner-access.js";
+import { formatTaskStatusDetail, formatTaskStatusTitle } from "../../tasks/task-status.js";
+>>>>>>> main
 import { loadModelCatalog } from "../model-catalog.js";
 import {
   buildAllowedModelSet,
@@ -119,30 +124,33 @@ function resolveStoreScopedRequesterKey(params: {
   return parsed.rest === params.mainKey ? params.mainKey : params.requesterKey;
 }
 
+<<<<<<< HEAD
 function formatSessionTaskLine(sessionKey: string): string | undefined {
   const tasks = listTasksForSessionKey(sessionKey);
   if (tasks.length === 0) {
+=======
+function formatSessionTaskLine(params: {
+  relatedSessionKey: string;
+  callerOwnerKey: string;
+}): string | undefined {
+  const snapshot = buildTaskStatusSnapshotForRelatedSessionKeyForOwner({
+    relatedSessionKey: params.relatedSessionKey,
+    callerOwnerKey: params.callerOwnerKey,
+  });
+  const task = snapshot.focus;
+  if (!task) {
+>>>>>>> main
     return undefined;
   }
-  const latest = tasks[0];
-  const active = tasks.filter(
-    (task) => task.status === "queued" || task.status === "running",
-  ).length;
-  const failed = tasks.filter(
-    (task) => task.status === "failed" || task.status === "timed_out" || task.status === "lost",
-  ).length;
   const headline =
-    active > 0
-      ? `${active} active`
-      : failed > 0
-        ? `${failed} recent failure${failed === 1 ? "" : "s"}`
-        : `latest ${latest.status.replaceAll("_", " ")}`;
-  const title = latest.label?.trim() || latest.task.trim();
-  const detail =
-    latest.status === "running" || latest.status === "queued"
-      ? latest.progressSummary?.trim()
-      : latest.error?.trim() || latest.terminalSummary?.trim();
-  const parts = [headline, latest.runtime, title, detail].filter(Boolean);
+    snapshot.activeCount > 0
+      ? `${snapshot.activeCount} active`
+      : snapshot.recentFailureCount > 0
+        ? `${snapshot.recentFailureCount} recent failure${snapshot.recentFailureCount === 1 ? "" : "s"}`
+        : `latest ${task.status.replaceAll("_", " ")}`;
+  const title = formatTaskStatusTitle(task);
+  const detail = formatTaskStatusDetail(task);
+  const parts = [headline, task.runtime, title, detail].filter(Boolean);
   return parts.length ? `📌 Tasks: ${parts.join(" · ")}` : undefined;
 }
 

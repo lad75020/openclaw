@@ -789,6 +789,24 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
                 type: "number",
                 exclusiveMinimum: 0,
               },
+<<<<<<< HEAD
+=======
+              overloadedProfileRotations: {
+                type: "integer",
+                minimum: 0,
+                maximum: 9007199254740991,
+              },
+              overloadedBackoffMs: {
+                type: "integer",
+                minimum: 0,
+                maximum: 9007199254740991,
+              },
+              rateLimitedProfileRotations: {
+                type: "integer",
+                minimum: 0,
+                maximum: 9007199254740991,
+              },
+>>>>>>> main
             },
             additionalProperties: false,
           },
@@ -1363,6 +1381,13 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
           defaults: {
             type: "object",
             properties: {
+              params: {
+                type: "object",
+                propertyNames: {
+                  type: "string",
+                },
+                additionalProperties: {},
+              },
               model: {
                 anyOf: [
                   {
@@ -10340,6 +10365,17 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
             },
             additionalProperties: false,
           },
+          webchat: {
+            type: "object",
+            properties: {
+              chatHistoryMaxChars: {
+                type: "integer",
+                exclusiveMinimum: 0,
+                maximum: 500000,
+              },
+            },
+            additionalProperties: false,
+          },
           channelHealthCheckMinutes: {
             type: "integer",
             minimum: 0,
@@ -13218,6 +13254,11 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       help: "Node command names to block even if present in node claims or default allowlist (exact command-name matching only, e.g. `system.run`; does not inspect shell text inside that command).",
       tags: ["access", "network"],
     },
+    "gateway.webchat.chatHistoryMaxChars": {
+      label: "WebChat History Max Chars",
+      help: "Max characters per text field in chat.history responses before truncation (default: 12000).",
+      tags: ["network", "performance"],
+    },
     "nodeHost.browserProxy": {
       label: "Node Browser Proxy",
       help: "Groups browser-proxy settings for exposing local browser control through node routing. Enable only when remote node workflows need your local browser profiles.",
@@ -14035,6 +14076,24 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       help: "Failure window (hours) for backoff counters (default: 24).",
       tags: ["auth", "access"],
     },
+<<<<<<< HEAD
+=======
+    "auth.cooldowns.overloadedProfileRotations": {
+      label: "Overloaded Profile Rotations",
+      help: "Maximum same-provider auth-profile rotations allowed for overloaded errors before switching to model fallback (default: 1).",
+      tags: ["auth", "access", "storage"],
+    },
+    "auth.cooldowns.overloadedBackoffMs": {
+      label: "Overloaded Backoff (ms)",
+      help: "Fixed delay in milliseconds before retrying an overloaded provider/profile rotation (default: 0).",
+      tags: ["auth", "access", "reliability", "storage"],
+    },
+    "auth.cooldowns.rateLimitedProfileRotations": {
+      label: "Rate-Limited Profile Rotations",
+      help: "Maximum same-provider auth-profile rotations allowed for rate-limit errors before switching to model fallback (default: 1).",
+      tags: ["auth", "access", "performance", "storage"],
+    },
+>>>>>>> main
     "agents.defaults.models": {
       label: "Models",
       help: "Configured model catalog (keys are full provider/model IDs).",

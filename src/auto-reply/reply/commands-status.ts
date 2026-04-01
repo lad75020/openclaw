@@ -22,6 +22,18 @@ import {
   resolveUsageProviderId,
 } from "../../infra/provider-usage.js";
 import type { MediaUnderstandingDecision } from "../../media-understanding/types.js";
+<<<<<<< HEAD
+=======
+import {
+  listTasksForAgentIdForStatus,
+  listTasksForSessionKeyForStatus,
+} from "../../tasks/task-status-access.js";
+import {
+  buildTaskStatusSnapshot,
+  formatTaskStatusDetail,
+  formatTaskStatusTitle,
+} from "../../tasks/task-status.js";
+>>>>>>> main
 import { normalizeGroupActivation } from "../group-activation.js";
 import { resolveSelectedAndActiveModel } from "../model-runtime.js";
 import { buildStatusMessage } from "../status.js";
@@ -54,6 +66,35 @@ function shouldLoadUsageSummary(params: {
   return Boolean(auth?.startsWith("oauth") || auth?.startsWith("token"));
 }
 
+<<<<<<< HEAD
+=======
+function formatSessionTaskLine(sessionKey: string): string | undefined {
+  const snapshot = buildTaskStatusSnapshot(listTasksForSessionKeyForStatus(sessionKey));
+  const task = snapshot.focus;
+  if (!task) {
+    return undefined;
+  }
+  const headline =
+    snapshot.activeCount > 0
+      ? `${snapshot.activeCount} active · ${snapshot.totalCount} total`
+      : snapshot.recentFailureCount > 0
+        ? `${snapshot.recentFailureCount} recent failure${snapshot.recentFailureCount === 1 ? "" : "s"}`
+        : "recently finished";
+  const title = formatTaskStatusTitle(task);
+  const detail = formatTaskStatusDetail(task);
+  const parts = [headline, task.runtime, title, detail].filter(Boolean);
+  return parts.length ? `📌 Tasks: ${parts.join(" · ")}` : undefined;
+}
+
+function formatAgentTaskCountsLine(agentId: string): string | undefined {
+  const snapshot = buildTaskStatusSnapshot(listTasksForAgentIdForStatus(agentId));
+  if (snapshot.totalCount === 0) {
+    return undefined;
+  }
+  return `📌 Tasks: ${snapshot.activeCount} active · ${snapshot.totalCount} total · agent-local`;
+}
+
+>>>>>>> main
 export async function buildStatusReply(params: {
   cfg: OpenClawConfig;
   command: CommandContext;

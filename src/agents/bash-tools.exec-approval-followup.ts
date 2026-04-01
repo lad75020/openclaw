@@ -1,4 +1,8 @@
 import { resolveExternalBestEffortDeliveryTarget } from "../infra/outbound/best-effort-delivery.js";
+<<<<<<< HEAD
+=======
+import { sendMessage } from "../infra/outbound/message.js";
+>>>>>>> main
 import { isGatewayMessageChannel, normalizeMessageChannel } from "../utils/message-channel.js";
 import { callGatewayTool } from "./tools/gateway.js";
 
@@ -36,11 +40,13 @@ export function buildExecApprovalFollowupPrompt(resultText: string): string {
   return [
     "An async command the user already approved has completed.",
     "Do not run the command again.",
+    "If the task requires more steps, continue from this result before replying to the user.",
+    "Only ask the user for help if you are actually blocked.",
     "",
     "Exact completion details:",
     trimmed,
     "",
-    "Reply to the user in a helpful way.",
+    "Continue the task if needed, then reply to the user in a helpful way.",
     "If it succeeded, share the relevant output.",
     "If it failed, explain what went wrong.",
   ].join("\n");
@@ -67,6 +73,7 @@ export async function sendExecApprovalFollowup(
       ? normalizedTurnSourceChannel
       : undefined;
 
+<<<<<<< HEAD
   await callGatewayTool(
     "agent",
     { timeoutMs: 60_000 },
@@ -97,4 +104,52 @@ export async function sendExecApprovalFollowup(
   );
 
   return true;
+=======
+  if (sessionKey) {
+    await callGatewayTool(
+      "agent",
+      { timeoutMs: 60_000 },
+      {
+        sessionKey,
+        message: buildExecApprovalFollowupPrompt(resultText),
+        deliver: deliveryTarget.deliver,
+        ...(deliveryTarget.deliver ? { bestEffortDeliver: true as const } : {}),
+        channel: deliveryTarget.deliver ? deliveryTarget.channel : sessionOnlyOriginChannel,
+        to: deliveryTarget.deliver
+          ? deliveryTarget.to
+          : sessionOnlyOriginChannel
+            ? params.turnSourceTo
+            : undefined,
+        accountId: deliveryTarget.deliver
+          ? deliveryTarget.accountId
+          : sessionOnlyOriginChannel
+            ? params.turnSourceAccountId
+            : undefined,
+        threadId: deliveryTarget.deliver
+          ? deliveryTarget.threadId
+          : sessionOnlyOriginChannel
+            ? params.turnSourceThreadId
+            : undefined,
+        idempotencyKey: `exec-approval-followup:${params.approvalId}`,
+      },
+      { expectFinal: true },
+    );
+    return true;
+  }
+
+  if (deliveryTarget.deliver) {
+    await sendMessage({
+      channel: deliveryTarget.channel,
+      to: deliveryTarget.to ?? "",
+      accountId: deliveryTarget.accountId,
+      threadId: deliveryTarget.threadId,
+      content: resultText,
+      agentId: undefined,
+      idempotencyKey: `exec-approval-followup:${params.approvalId}`,
+    });
+    return true;
+  }
+
+  throw new Error("Session key or deliverable origin route is required");
+>>>>>>> main
 }

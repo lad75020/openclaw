@@ -291,6 +291,7 @@ export const FIELD_LABELS: Record<string, string> = {
   "gateway.nodes.browser.node": "Gateway Node Browser Pin",
   "gateway.nodes.allowCommands": "Gateway Node Allowlist (Extra Commands)",
   "gateway.nodes.denyCommands": "Gateway Node Denylist",
+  "gateway.webchat.chatHistoryMaxChars": "WebChat History Max Chars",
   nodeHost: "Node Host",
   "nodeHost.browserProxy": "Node Browser Proxy",
   "nodeHost.browserProxy.enabled": "Node Browser Proxy Enabled",
@@ -462,6 +463,12 @@ export const FIELD_LABELS: Record<string, string> = {
   "auth.cooldowns.billingBackoffHoursByProvider": "Billing Backoff Overrides",
   "auth.cooldowns.billingMaxHours": "Billing Backoff Cap (hours)",
   "auth.cooldowns.failureWindowHours": "Failover Window (hours)",
+<<<<<<< HEAD
+=======
+  "auth.cooldowns.overloadedProfileRotations": "Overloaded Profile Rotations",
+  "auth.cooldowns.overloadedBackoffMs": "Overloaded Backoff (ms)",
+  "auth.cooldowns.rateLimitedProfileRotations": "Rate-Limited Profile Rotations",
+>>>>>>> main
   "agents.defaults.models": "Models",
   "agents.defaults.model.primary": "Primary Model",
   "agents.defaults.model.fallbacks": "Model Fallbacks",

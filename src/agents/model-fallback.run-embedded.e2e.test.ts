@@ -224,9 +224,8 @@ async function runEmbeddedFallback(params: {
   sessionKey: string;
   runId: string;
   abortSignal?: AbortSignal;
-  config?: OpenClawConfig;
 }) {
-  const cfg = params.config ?? makeConfig();
+  const cfg = makeConfig();
   return await runWithModelFallback({
     cfg,
     provider: "openai",
@@ -367,8 +366,8 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
       expect(typeof usageStats["groq:p1"]?.lastUsed).toBe("number");
 
       expectOpenAiThenGroqAttemptOrder();
-      expect(computeBackoffMock).not.toHaveBeenCalled();
-      expect(sleepWithAbortMock).not.toHaveBeenCalled();
+      expect(computeBackoffMock).toHaveBeenCalledTimes(1);
+      expect(sleepWithAbortMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -404,8 +403,8 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
       expect(usageStats["groq:p1"]?.disabledUntil).toBeUndefined();
 
       expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(2);
-      expect(computeBackoffMock).not.toHaveBeenCalled();
-      expect(sleepWithAbortMock).not.toHaveBeenCalled();
+      expect(computeBackoffMock).toHaveBeenCalledTimes(2);
+      expect(sleepWithAbortMock).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -467,8 +466,8 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
       const usageStats = await readUsageStats(agentDir);
       expect(typeof usageStats["openai:p1"]?.cooldownUntil).toBe("number");
       expect(usageStats["openai:p1"]?.failureCounts).toMatchObject({ overloaded: 2 });
-      expect(computeBackoffMock).not.toHaveBeenCalled();
-      expect(sleepWithAbortMock).not.toHaveBeenCalled();
+      expect(computeBackoffMock).toHaveBeenCalledTimes(1);
+      expect(sleepWithAbortMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -512,10 +511,6 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
           sessionKey: "agent:test:overloaded-backoff-abort",
           runId: "run:overloaded-backoff-abort",
           abortSignal: controller.signal,
-          config: {
-            ...makeConfig(),
-            auth: { cooldowns: { overloadedBackoffMs: 321 } },
-          },
         }),
       ).rejects.toMatchObject({
         name: "AbortError",
@@ -533,7 +528,7 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
   it("caps overloaded profile rotations and escalates to cross-provider fallback (#58348)", async () => {
     // When a provider has multiple auth profiles and all return overloaded_error,
     // the runner should not exhaust all profiles before falling back. It should
-    // cap profile rotations at overloadedProfileRotations=1 and escalate
+    // cap profile rotations at MAX_OVERLOAD_PROFILE_ROTATIONS (1) and escalate
     // to cross-provider fallback immediately.
     await withAgentWorkspace(async ({ agentDir, workspaceDir }) => {
       // Write auth store with multiple profiles for openai
@@ -599,7 +594,7 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
       expect(result.model).toBe("mock-2");
       expect(result.result.payloads?.[0]?.text ?? "").toContain("fallback ok");
 
-      // With overloadedProfileRotations=1, we expect:
+      // With MAX_OVERLOAD_PROFILE_ROTATIONS=1, we expect:
       // - 1 initial openai attempt (p1)
       // - 1 rotation to p2 (capped)
       // - escalation to groq (1 attempt)
@@ -614,6 +609,8 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
       expect(groqAttempts.length).toBe(1);
     });
   });
+<<<<<<< HEAD
+=======
 
   it("respects overloadedProfileRotations=0 and falls back immediately", async () => {
     await withAgentWorkspace(async ({ agentDir, workspaceDir }) => {
@@ -781,4 +778,5 @@ describe("runWithModelFallback + runEmbeddedPiAgent overload policy", () => {
       expect(groqAttempts.length).toBe(1);
     });
   });
+>>>>>>> main
 });

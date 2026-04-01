@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { AcpRuntimeError } from "openclaw/plugin-sdk/acp-runtime";
 import {
   __testing,
@@ -236,6 +233,8 @@ describe("createAcpxRuntimeService", () => {
     expect(startResult).toBe("started");
     expect(getAcpRuntimeBackend("acpx")?.runtime).toBe(runtime);
   });
+<<<<<<< HEAD
+=======
 
   it("creates the workspace dir before probing acpx", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "acpx-service-workspace-"));
@@ -311,4 +310,5 @@ describe("createAcpxRuntimeService", () => {
     expect(context.logger.info).not.toHaveBeenCalledWith("acpx runtime backend ready");
     expect(() => requireAcpRuntimeBackend("acpx")).toThrowError(AcpRuntimeError);
   });
+>>>>>>> main
 });

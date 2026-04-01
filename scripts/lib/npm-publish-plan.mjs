@@ -25,6 +25,8 @@ const CORRECTION_VERSION_REGEX =
  */
 
 /**
+<<<<<<< HEAD
+=======
  * @typedef {object} NpmDistTagMirrorAuth
  * @property {boolean} hasAuth
  * @property {"node-auth-token" | "npm-token" | "none"} source
@@ -35,6 +37,7 @@ const CORRECTION_VERSION_REGEX =
  */
 
 /**
+>>>>>>> main
  * @param {string} version
  * @param {Record<string, string | undefined>} groups
  * @param {"stable" | "beta"} channel
@@ -184,6 +187,8 @@ export function resolveNpmPublishPlan(version, currentBetaVersion) {
     mirrorDistTags: ["beta"],
   };
 }
+<<<<<<< HEAD
+=======
 
 /**
  * @param {{
@@ -221,3 +226,4 @@ export function shouldRequireNpmDistTagMirrorAuth(params) {
     !params.hasAuth
   );
 }
+>>>>>>> main

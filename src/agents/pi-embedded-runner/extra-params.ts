@@ -24,10 +24,8 @@ import {
 } from "./moonshot-stream-wrappers.js";
 import {
   createOpenAIAttributionHeadersWrapper,
-  createCodexNativeWebSearchWrapper,
   createOpenAIDefaultTransportWrapper,
   createOpenAIFastModeWrapper,
-  createOpenAIReasoningCompatibilityWrapper,
   createOpenAIResponsesContextManagementWrapper,
   createOpenAIServiceTierWrapper,
   createOpenAITextVerbosityWrapper,
@@ -294,7 +292,6 @@ type ApplyExtraParamsContext = {
   cfg: OpenClawConfig | undefined;
   provider: string;
   modelId: string;
-  agentDir?: string;
   workspaceDir?: string;
   thinkingLevel?: ThinkLevel;
   model?: ProviderRuntimeModel;
@@ -416,11 +413,6 @@ function applyPostPluginStreamWrappers(
         );
       }
     }
-
-    ctx.agent.streamFn = createCodexNativeWebSearchWrapper(ctx.agent.streamFn, {
-      config: ctx.cfg,
-      agentDir: ctx.agentDir,
-    });
   }
 
   // Work around upstream pi-ai hardcoding `store: false` for Responses API.
@@ -430,15 +422,6 @@ function applyPostPluginStreamWrappers(
     ctx.agent.streamFn,
     ctx.effectiveExtraParams,
   );
-
-  if (
-    ctx.provider === "openai" ||
-    ctx.provider === "openai-codex" ||
-    ctx.provider === "azure-openai" ||
-    ctx.provider === "azure-openai-responses"
-  ) {
-    ctx.agent.streamFn = createOpenAIReasoningCompatibilityWrapper(ctx.agent.streamFn);
-  }
 
   const rawParallelToolCalls = resolveAliasedParamValue(
     [ctx.resolvedExtraParams, ctx.override],
@@ -477,7 +460,6 @@ export function applyExtraParamsToAgent(
   agentId?: string,
   workspaceDir?: string,
   model?: ProviderRuntimeModel,
-  agentDir?: string,
 ): { effectiveExtraParams: Record<string, unknown> } {
   const resolvedExtraParams = resolveExtraParams({
     cfg,
@@ -500,12 +482,12 @@ export function applyExtraParamsToAgent(
     agentId,
     resolvedExtraParams,
   });
+
   const wrapperContext: ApplyExtraParamsContext = {
     agent,
     cfg,
     provider,
     modelId,
-    agentDir,
     workspaceDir,
     thinkingLevel,
     model,

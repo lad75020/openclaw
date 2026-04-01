@@ -249,7 +249,10 @@ export function createSubagentRegistryLifecycleController(params: {
   }) => {
     safeSetSubagentTaskDeliveryStatus({
       runId: giveUpParams.runId,
+<<<<<<< HEAD
+=======
       childSessionKey: giveUpParams.entry.childSessionKey,
+>>>>>>> main
       deliveryStatus: "failed",
     });
     giveUpParams.entry.wakeOnDescendantSettle = undefined;
@@ -366,8 +369,6 @@ export function createSubagentRegistryLifecycleController(params: {
     if (didAnnounce) {
       setDetachedTaskDeliveryStatusByRunId({
         runId,
-        runtime: "subagent",
-        sessionKey: entry.childSessionKey,
         deliveryStatus: "delivered",
       });
       entry.wakeOnDescendantSettle = undefined;
@@ -424,8 +425,6 @@ export function createSubagentRegistryLifecycleController(params: {
     if (deferredDecision.kind === "give-up") {
       setDetachedTaskDeliveryStatusByRunId({
         runId,
-        runtime: "subagent",
-        sessionKey: entry.childSessionKey,
         deliveryStatus: "failed",
       });
       entry.wakeOnDescendantSettle = undefined;
@@ -557,10 +556,32 @@ export function createSubagentRegistryLifecycleController(params: {
     if (mutated) {
       params.persist();
     }
+<<<<<<< HEAD
+    if (completeParams.outcome.status === "ok") {
+      completeTaskRunByRunId({
+        runId: entry.runId,
+        endedAt: entry.endedAt,
+        lastEventAt: entry.endedAt ?? Date.now(),
+        progressSummary: entry.frozenResultText ?? undefined,
+        terminalSummary: null,
+      });
+    } else {
+      failTaskRunByRunId({
+        runId: entry.runId,
+        status: completeParams.outcome.status === "timeout" ? "timed_out" : "failed",
+        endedAt: entry.endedAt,
+        lastEventAt: entry.endedAt ?? Date.now(),
+        error: completeParams.outcome.status === "error" ? completeParams.outcome.error : undefined,
+        progressSummary: entry.frozenResultText ?? undefined,
+        terminalSummary: null,
+      });
+    }
+=======
     safeFinalizeSubagentTaskRun({
       entry,
       outcome: completeParams.outcome,
     });
+>>>>>>> main
 
     try {
       await persistSubagentSessionTiming(entry);

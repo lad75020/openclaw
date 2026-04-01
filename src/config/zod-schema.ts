@@ -450,9 +450,12 @@ export const OpenClawSchema = z
             billingBackoffHoursByProvider: z.record(z.string(), z.number().positive()).optional(),
             billingMaxHours: z.number().positive().optional(),
             failureWindowHours: z.number().positive().optional(),
+<<<<<<< HEAD
+=======
             overloadedProfileRotations: z.number().int().nonnegative().optional(),
             overloadedBackoffMs: z.number().int().nonnegative().optional(),
             rateLimitedProfileRotations: z.number().int().nonnegative().optional(),
+>>>>>>> main
           })
           .strict()
           .optional(),

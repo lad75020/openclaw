@@ -1,5 +1,8 @@
 import { resolveExternalBestEffortDeliveryTarget } from "../infra/outbound/best-effort-delivery.js";
+<<<<<<< HEAD
+=======
 import { sendMessage } from "../infra/outbound/message.js";
+>>>>>>> main
 import { isGatewayMessageChannel, normalizeMessageChannel } from "../utils/message-channel.js";
 import { callGatewayTool } from "./tools/gateway.js";
 
@@ -54,7 +57,7 @@ export async function sendExecApprovalFollowup(
 ): Promise<boolean> {
   const sessionKey = params.sessionKey?.trim();
   const resultText = params.resultText.trim();
-  if (!resultText) {
+  if (!sessionKey || !resultText) {
     return false;
   }
 
@@ -70,6 +73,38 @@ export async function sendExecApprovalFollowup(
       ? normalizedTurnSourceChannel
       : undefined;
 
+<<<<<<< HEAD
+  await callGatewayTool(
+    "agent",
+    { timeoutMs: 60_000 },
+    {
+      sessionKey,
+      message: buildExecApprovalFollowupPrompt(resultText),
+      deliver: deliveryTarget.deliver,
+      ...(deliveryTarget.deliver ? { bestEffortDeliver: true as const } : {}),
+      channel: deliveryTarget.deliver ? deliveryTarget.channel : sessionOnlyOriginChannel,
+      to: deliveryTarget.deliver
+        ? deliveryTarget.to
+        : sessionOnlyOriginChannel
+          ? params.turnSourceTo
+          : undefined,
+      accountId: deliveryTarget.deliver
+        ? deliveryTarget.accountId
+        : sessionOnlyOriginChannel
+          ? params.turnSourceAccountId
+          : undefined,
+      threadId: deliveryTarget.deliver
+        ? deliveryTarget.threadId
+        : sessionOnlyOriginChannel
+          ? params.turnSourceThreadId
+          : undefined,
+      idempotencyKey: `exec-approval-followup:${params.approvalId}`,
+    },
+    { expectFinal: true },
+  );
+
+  return true;
+=======
   if (sessionKey) {
     await callGatewayTool(
       "agent",
@@ -116,4 +151,5 @@ export async function sendExecApprovalFollowup(
   }
 
   throw new Error("Session key or deliverable origin route is required");
+>>>>>>> main
 }

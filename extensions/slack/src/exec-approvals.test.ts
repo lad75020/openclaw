@@ -133,7 +133,7 @@ describe("slack exec approvals", () => {
         cfg: buildConfig({ enabled: true, approvers: ["U123"] }),
         payload,
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       shouldSuppressLocalSlackExecApprovalPrompt({

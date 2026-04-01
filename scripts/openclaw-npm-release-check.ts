@@ -6,7 +6,6 @@ import { basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   compareReleaseVersions as compareReleaseVersionsBase,
-  resolveNpmDistTagMirrorAuth as resolveNpmDistTagMirrorAuthBase,
   parseReleaseVersion as parseReleaseVersionBase,
   resolveNpmPublishPlan as resolveNpmPublishPlanBase,
 } from "./lib/npm-publish-plan.mjs";
@@ -48,11 +47,6 @@ export type NpmPublishPlan = {
   publishTag: "latest" | "beta";
   mirrorDistTags: ("latest" | "beta")[];
 };
-
-export type NpmDistTagMirrorAuth = {
-  hasAuth: boolean;
-  source: "node-auth-token" | "npm-token" | "none";
-};
 const EXPECTED_REPOSITORY_URL = "https://github.com/openclaw/openclaw";
 const MAX_CALVER_DISTANCE_DAYS = 2;
 const REQUIRED_PACKED_PATHS = ["dist/control-ui/index.html"];
@@ -86,6 +80,8 @@ export function resolveNpmPublishPlan(
   return resolveNpmPublishPlanBase(version, currentBetaVersion) as NpmPublishPlan;
 }
 
+<<<<<<< HEAD
+=======
 export function resolveNpmDistTagMirrorAuth(params?: {
   nodeAuthToken?: string | null;
   npmToken?: string | null;
@@ -99,6 +95,7 @@ export function resolveNpmDistTagMirrorAuth(params?: {
   }) as NpmDistTagMirrorAuth;
 }
 
+>>>>>>> main
 export function parseReleaseTagVersion(version: string): ParsedReleaseTag | null {
   const trimmed = version.trim();
   if (!trimmed) {

@@ -26,6 +26,8 @@ export type AuthConfig = {
      * this window, counters reset. Default: 24.
      */
     failureWindowHours?: number;
+<<<<<<< HEAD
+=======
     /**
      * Maximum same-provider auth-profile rotations to allow for overloaded
      * errors before escalating to cross-provider model fallback. Default: 1.
@@ -41,5 +43,6 @@ export type AuthConfig = {
      * errors before escalating to cross-provider model fallback. Default: 1.
      */
     rateLimitedProfileRotations?: number;
+>>>>>>> main
   };
 };

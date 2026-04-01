@@ -4,6 +4,8 @@ import {
   resetSubagentRegistryForTests,
 } from "../../agents/subagent-registry.js";
 import type { OpenClawConfig } from "../../config/config.js";
+<<<<<<< HEAD
+=======
 import {
   completeTaskRunByRunId,
   createQueuedTaskRun,
@@ -11,6 +13,7 @@ import {
   failTaskRunByRunId,
 } from "../../tasks/task-executor.js";
 import { resetTaskRegistryForTests } from "../../tasks/task-registry.js";
+>>>>>>> main
 import { buildStatusReply } from "./commands-status.js";
 import { buildCommandTestParams } from "./commands.test-harness.js";
 
@@ -48,12 +51,10 @@ async function buildStatusReplyForTest(params: { sessionKey?: string; verbose?: 
 describe("buildStatusReply subagent summary", () => {
   beforeEach(() => {
     resetSubagentRegistryForTests();
-    resetTaskRegistryForTests();
   });
 
   afterEach(() => {
     resetSubagentRegistryForTests();
-    resetTaskRegistryForTests();
   });
 
   it("counts ended orchestrators with active descendants as active", async () => {
@@ -187,6 +188,8 @@ describe("buildStatusReply subagent summary", () => {
 
     expect(reply?.text).toContain("🤖 Subagents: 1 active");
   });
+<<<<<<< HEAD
+=======
 
   it("includes active and total task counts for the current session", async () => {
     createRunningTaskRun({
@@ -347,4 +350,5 @@ describe("buildStatusReply subagent summary", () => {
     expect(reply?.text).not.toContain("subagent");
     expect(reply?.text).not.toContain("cron");
   });
+>>>>>>> main
 });

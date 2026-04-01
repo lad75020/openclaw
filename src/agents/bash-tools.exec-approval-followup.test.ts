@@ -4,19 +4,13 @@ vi.mock("./tools/gateway.js", () => ({
   callGatewayTool: vi.fn(async () => ({ ok: true })),
 }));
 
-vi.mock("../infra/outbound/message.js", () => ({
-  sendMessage: vi.fn(async () => ({ ok: true })),
-}));
-
 let callGatewayTool: typeof import("./tools/gateway.js").callGatewayTool;
-let sendMessage: typeof import("../infra/outbound/message.js").sendMessage;
 let buildExecApprovalFollowupPrompt: typeof import("./bash-tools.exec-approval-followup.js").buildExecApprovalFollowupPrompt;
 let sendExecApprovalFollowup: typeof import("./bash-tools.exec-approval-followup.js").sendExecApprovalFollowup;
 
 beforeEach(async () => {
   vi.resetModules();
   ({ callGatewayTool } = await import("./tools/gateway.js"));
-  ({ sendMessage } = await import("../infra/outbound/message.js"));
   ({ buildExecApprovalFollowupPrompt, sendExecApprovalFollowup } =
     await import("./bash-tools.exec-approval-followup.js"));
 });
@@ -61,9 +55,11 @@ describe("exec approval followup", () => {
       }),
       { expectFinal: true },
     );
-    expect(sendMessage).not.toHaveBeenCalled();
   });
 
+<<<<<<< HEAD
+  it("uses external delivery when a deliverable route is available", async () => {
+=======
   it.each([
     {
       channel: "slack",
@@ -87,20 +83,26 @@ describe("exec approval followup", () => {
       threadId: "789",
     },
   ])("uses agent continuation for $channel followups when a session exists", async (target) => {
+>>>>>>> main
     await sendExecApprovalFollowup({
-      approvalId: `req-${target.channel}`,
-      sessionKey: target.sessionKey,
-      turnSourceChannel: target.channel,
-      turnSourceTo: target.to,
-      turnSourceAccountId: target.accountId,
-      turnSourceThreadId: target.threadId,
-      resultText: "slack exec approval smoke",
+      approvalId: "req-2",
+      sessionKey: "agent:main:discord:channel:123",
+      turnSourceChannel: "discord",
+      turnSourceTo: "123",
+      turnSourceAccountId: "default",
+      turnSourceThreadId: "456",
+      resultText: "Exec completed: echo ok",
     });
 
     expect(callGatewayTool).toHaveBeenCalledWith(
       "agent",
       expect.any(Object),
       expect.objectContaining({
+<<<<<<< HEAD
+        sessionKey: "agent:main:discord:channel:123",
+        deliver: true,
+        bestEffortDeliver: true,
+=======
         sessionKey: target.sessionKey,
         deliver: true,
         bestEffortDeliver: true,
@@ -127,24 +129,18 @@ describe("exec approval followup", () => {
 
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
+>>>>>>> main
         channel: "discord",
         to: "123",
         accountId: "default",
         threadId: "456",
+<<<<<<< HEAD
+=======
         content: "discord exec approval smoke",
         idempotencyKey: "exec-approval-followup:req-no-session",
+>>>>>>> main
       }),
+      { expectFinal: true },
     );
-    expect(callGatewayTool).not.toHaveBeenCalled();
-  });
-
-  it("throws when neither a session nor a deliverable route is available", async () => {
-    await expect(
-      sendExecApprovalFollowup({
-        approvalId: "req-missing",
-        turnSourceChannel: "slack",
-        resultText: "Exec completed: echo ok",
-      }),
-    ).rejects.toThrow("Session key or deliverable origin route is required");
   });
 });

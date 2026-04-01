@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import type {
   AcpRuntime,
   OpenClawPluginService,
@@ -68,11 +67,14 @@ export function createAcpxRuntimeService(
         rawConfig: params.pluginConfig,
         workspaceDir: ctx.workspaceDir,
       });
+<<<<<<< HEAD
+=======
       if (ctx.workspaceDir?.trim()) {
         await fs.mkdir(ctx.workspaceDir, { recursive: true });
       }
       const healthProbeRetryDelaysMs =
         params.healthProbeRetryDelaysMs ?? DEFAULT_HEALTH_PROBE_RETRY_DELAYS_MS;
+>>>>>>> main
       const runtimeFactory = params.runtimeFactory ?? createDefaultRuntime;
       runtime = runtimeFactory({
         pluginConfig,

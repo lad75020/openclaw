@@ -159,6 +159,8 @@ describe("buildAgentSystemPrompt", () => {
     );
   });
 
+<<<<<<< HEAD
+=======
   it("keeps manual /approve instructions for non-native approval channels", () => {
     const prompt = buildAgentSystemPrompt({
       workspaceDir: "/tmp/openclaw",
@@ -204,6 +206,7 @@ describe("buildAgentSystemPrompt", () => {
     );
   });
 
+>>>>>>> main
   it("omits skills in minimal prompt mode when skillsPrompt is absent", () => {
     const prompt = buildAgentSystemPrompt({
       workspaceDir: "/tmp/openclaw",

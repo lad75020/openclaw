@@ -457,7 +457,6 @@ export async function runEmbeddedAttempt(
           modelProvider: params.model.provider,
           modelId: params.modelId,
           modelCompat: params.model.compat,
-          modelApi: params.model.api,
           modelContextWindowTokens: params.model.contextWindow,
           modelAuthMode: resolveModelAuthMode(params.model.provider, params.config),
           currentChannelId: params.currentChannelId,
@@ -930,7 +929,6 @@ export async function runEmbeddedAttempt(
         sessionAgentId,
         effectiveWorkspace,
         params.model,
-        agentDir,
       );
       const agentTransportOverride = resolveAgentTransportOverride({
         settingsManager,

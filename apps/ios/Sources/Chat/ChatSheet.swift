@@ -13,7 +13,8 @@ struct ChatSheet: View {
         self._viewModel = State(
             initialValue: OpenClawChatViewModel(
                 sessionKey: sessionKey,
-                transport: transport))
+                transport: transport,
+                voiceInputController: IOSChatVoiceInputController()))
         self.userAccent = userAccent
         self.agentName = agentName
     }

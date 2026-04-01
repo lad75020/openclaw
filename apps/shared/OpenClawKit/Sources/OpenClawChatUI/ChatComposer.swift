@@ -225,6 +225,9 @@ struct OpenClawChatComposer: View {
                     self.connectionPill
                 }
                 Spacer(minLength: 0)
+                if self.viewModel.supportsVoiceInput {
+                    self.voiceInputButton
+                }
                 self.sendButton
             }
         }
@@ -335,6 +338,16 @@ struct OpenClawChatComposer: View {
                 .disabled(!self.viewModel.canSend)
             }
         }
+    }
+
+    private var voiceInputButton: some View {
+        ChatVoiceInputButton(
+            isRecording: self.viewModel.isRecordingVoiceInput,
+            isTranscribing: self.viewModel.isTranscribingVoiceInput,
+            action: {
+                self.viewModel.toggleVoiceInput()
+            })
+        .disabled(self.viewModel.isSending || self.viewModel.pendingRunCount > 0 || self.viewModel.isTranscribingVoiceInput)
     }
 
     private var refreshButton: some View {

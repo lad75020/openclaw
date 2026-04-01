@@ -25,6 +25,8 @@ public final class OpenClawChatViewModel {
     public private(set) var isLoading = false
     public private(set) var isSending = false
     public private(set) var isAborting = false
+    public private(set) var isRecordingVoiceInput = false
+    public private(set) var isTranscribingVoiceInput = false
     public var errorText: String?
     public var attachments: [OpenClawPendingAttachment] = []
     public private(set) var healthOK: Bool = false
@@ -36,6 +38,7 @@ public final class OpenClawChatViewModel {
     public private(set) var pendingToolCalls: [OpenClawChatPendingToolCall] = []
     public private(set) var sessions: [OpenClawChatSessionEntry] = []
     private let transport: any OpenClawChatTransport
+    private let voiceInputController: (any OpenClawChatVoiceInputControlling)?
     private var sessionDefaults: OpenClawChatSessionsDefaults?
     private let prefersExplicitThinkingLevel: Bool
     private let onThinkingLevelChanged: (@MainActor @Sendable (String) -> Void)?
@@ -76,11 +79,13 @@ public final class OpenClawChatViewModel {
     public init(
         sessionKey: String,
         transport: any OpenClawChatTransport,
+        voiceInputController: (any OpenClawChatVoiceInputControlling)? = nil,
         initialThinkingLevel: String? = nil,
         onThinkingLevelChanged: (@MainActor @Sendable (String) -> Void)? = nil)
     {
         self.sessionKey = sessionKey
         self.transport = transport
+        self.voiceInputController = voiceInputController
         let normalizedThinkingLevel = Self.normalizedThinkingLevel(initialThinkingLevel)
         self.thinkingLevel = normalizedThinkingLevel ?? "off"
         self.prefersExplicitThinkingLevel = normalizedThinkingLevel != nil
@@ -115,6 +120,10 @@ public final class OpenClawChatViewModel {
 
     public func send() {
         Task { await self.performSend() }
+    }
+
+    public func toggleVoiceInput() {
+        Task { await self.performToggleVoiceInput() }
     }
 
     public func abort() {
@@ -211,7 +220,15 @@ public final class OpenClawChatViewModel {
 
     public var canSend: Bool {
         let trimmed = self.input.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !self.isSending && self.pendingRunCount == 0 && (!trimmed.isEmpty || !self.attachments.isEmpty)
+        return !self.isSending
+            && self.pendingRunCount == 0
+            && !self.isRecordingVoiceInput
+            && !self.isTranscribingVoiceInput
+            && (!trimmed.isEmpty || !self.attachments.isEmpty)
+    }
+
+    public var supportsVoiceInput: Bool {
+        self.voiceInputController != nil
     }
 
     // MARK: - Internals
@@ -249,6 +266,62 @@ public final class OpenClawChatViewModel {
         } catch {
             self.errorText = error.localizedDescription
             chatUILogger.error("bootstrap failed \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func performToggleVoiceInput() async {
+        if self.isRecordingVoiceInput {
+            await self.performStopVoiceInput()
+            return
+        }
+        await self.performStartVoiceInput()
+    }
+
+    private func performStartVoiceInput() async {
+        guard let voiceInputController else { return }
+        guard !self.isSending, self.pendingRunCount == 0, !self.isTranscribingVoiceInput else { return }
+        do {
+            try await voiceInputController.startRecording()
+            self.errorText = nil
+            self.isRecordingVoiceInput = true
+        } catch {
+            self.isRecordingVoiceInput = false
+            self.errorText = "Voice input failed: \(error.localizedDescription)"
+            chatUILogger.error("voice input start failed \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func performStopVoiceInput() async {
+        guard let voiceInputController else { return }
+        guard self.isRecordingVoiceInput else { return }
+
+        self.isRecordingVoiceInput = false
+        self.isTranscribingVoiceInput = true
+        defer { self.isTranscribingVoiceInput = false }
+
+        do {
+            let transcript = try await voiceInputController.stopRecording()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !transcript.isEmpty else { return }
+            self.errorText = nil
+            self.appendVoiceTranscript(transcript)
+        } catch {
+            self.errorText = "Voice input failed: \(error.localizedDescription)"
+            chatUILogger.error("voice input stop failed \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func appendVoiceTranscript(_ transcript: String) {
+        let trimmedInput = self.input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else {
+            self.input = transcript
+            return
+        }
+
+        if self.input.hasSuffix(" ") || self.input.hasSuffix("\n") {
+            self.input += transcript
+        } else {
+            self.input += "\n\(transcript)"
         }
     }
 

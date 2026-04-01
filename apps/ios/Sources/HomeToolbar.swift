@@ -9,6 +9,7 @@ struct HomeToolbar: View {
     var talkActive: Bool
     var talkTint: Color
     var onStatusTap: () -> Void
+    var onVoiceTap: () -> Void
     var onChatTap: () -> Void
     var onTalkTap: () -> Void
     var onSettingsTap: () -> Void
@@ -33,6 +34,12 @@ struct HomeToolbar: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: 8) {
+                    HomeToolbarActionButton(
+                        systemImage: "mic.fill",
+                        accessibilityLabel: "Voice",
+                        brighten: self.brighten,
+                        action: self.onVoiceTap)
+
                     HomeToolbarActionButton(
                         systemImage: "text.bubble.fill",
                         accessibilityLabel: "Chat",

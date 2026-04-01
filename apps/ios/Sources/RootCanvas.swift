@@ -28,14 +28,16 @@ struct RootCanvas: View {
 
     private enum PresentedSheet: Identifiable {
         case settings
+        case voice
         case chat
         case quickSetup
 
         var id: Int {
             switch self {
             case .settings: 0
-            case .chat: 1
-            case .quickSetup: 2
+            case .voice: 1
+            case .chat: 2
+            case .quickSetup: 3
             }
         }
     }
@@ -93,6 +95,9 @@ struct RootCanvas: View {
                 voiceWakeToastText: self.voiceWakeToastText,
                 cameraHUDText: self.appModel.cameraHUDText,
                 cameraHUDKind: self.appModel.cameraHUDKind,
+                openVoice: {
+                    self.presentedSheet = .voice
+                },
                 openChat: {
                     self.presentedSheet = .chat
                 },
@@ -114,6 +119,10 @@ struct RootCanvas: View {
                     .environment(self.appModel)
                     .environment(self.appModel.voiceWake)
                     .environment(self.gatewayController)
+            case .voice:
+                VoiceTab()
+                    .environment(self.appModel)
+                    .environment(self.appModel.voiceWake)
             case .chat:
                 ChatSheet(
                     // Chat RPCs run on the operator session (read/write scopes).
@@ -460,6 +469,7 @@ private struct CanvasContent: View {
     var voiceWakeToastText: String?
     var cameraHUDText: String?
     var cameraHUDKind: NodeAppModel.CameraHUDKind?
+    var openVoice: () -> Void
     var openChat: () -> Void
     var openSettings: () -> Void
 
@@ -491,6 +501,9 @@ private struct CanvasContent: View {
                     } else {
                         self.openSettings()
                     }
+                },
+                onVoiceTap: {
+                    self.openVoice()
                 },
                 onChatTap: {
                     self.openChat()

@@ -50,6 +50,7 @@ targets:
       - target: OpenClawActivityWidget
         embed: true
       - target: OpenClawWatchApp
+        embed: true
       - package: OpenClawKit
       - package: OpenClawKit
         product: OpenClawChatUI

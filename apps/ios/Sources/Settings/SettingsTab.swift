@@ -1,7 +1,9 @@
+import CoreImage
 import OpenClawKit
 import Network
 import Observation
 import os
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -56,7 +58,14 @@ struct SettingsTab: View {
     @State private var setupStatusText: String?
     @State private var manualGatewayPortText: String = ""
     @State private var gatewayExpanded: Bool = true
+    @State private var addGatewayExpanded: Bool = false
     @State private var selectedAgentPickerId: String = ""
+    @State private var savedGatewayProfiles: [GatewaySettingsStore.SavedGatewayProfile] = []
+    @State private var selectedSavedGatewayID: String?
+    @State private var showRemoveGatewayAlert: Bool = false
+    @State private var showQRScanner: Bool = false
+    @State private var scannerError: String?
+    @State private var selectedPhoto: PhotosPickerItem?
 
     @State private var showResetOnboardingAlert: Bool = false
     @State private var activeFeatureHelp: FeatureHelp?
@@ -115,7 +124,15 @@ struct SettingsTab: View {
                 message: Text(help.message),
                 dismissButton: .default(Text("OK")))
         }
-        let appearForm = helpAlertForm.onAppear {
+        let removeGatewayAlertForm = helpAlertForm.alert("Remove Gateway?", isPresented: self.$showRemoveGatewayAlert) {
+            Button("Remove", role: .destructive) {
+                self.removeSelectedGateway()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the saved gateway from this iPhone.")
+        }
+        let appearForm = removeGatewayAlertForm.onAppear {
             self.lastLocationModeRaw = self.locationEnabledModeRaw
             self.syncManualPortText()
             let trimmedInstanceId = self.instanceId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -127,13 +144,27 @@ struct SettingsTab: View {
             self.appModel.refreshLastShareEventFromRelay()
             // Keep setup front-and-center when disconnected; keep things compact once connected.
             self.gatewayExpanded = !self.isGatewayConnected
+            self.addGatewayExpanded = !self.isGatewayConnected
             self.selectedAgentPickerId = self.appModel.selectedAgentId ?? ""
+            self.refreshSavedGatewayProfiles()
+            self.syncSelectedSavedGateway()
             if self.isGatewayConnected {
                 self.appModel.reloadTalkConfig()
             }
         }
 
         return appearForm
+            .sheet(isPresented: self.$showQRScanner) {
+                self.qrScannerSheet
+            }
+            .alert("QR Scanner Unavailable", isPresented: Binding(
+                get: { self.scannerError != nil },
+                set: { if !$0 { self.scannerError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(self.scannerError ?? "")
+            }
             .onChange(of: self.selectedAgentPickerId) { _, newValue in
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.appModel.setSelectedAgentId(trimmed.isEmpty ? nil : trimmed)
@@ -186,6 +217,8 @@ struct SettingsTab: View {
                 self.syncManualPortText()
             }
             .onChange(of: self.appModel.gatewayServerName) { _, newValue in
+                self.refreshSavedGatewayProfiles()
+                self.syncSelectedSavedGateway()
                 if newValue != nil {
                     self.setupCode = ""
                     self.setupStatusText = nil
@@ -200,6 +233,14 @@ struct SettingsTab: View {
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
                 self.setupStatusText = trimmed
+            }
+            .onChange(of: self.gatewayController.gateways) { _, _ in
+                self.refreshSavedGatewayProfiles()
+            }
+            .onChange(of: self.showQRScanner) { _, isPresented in
+                if !isPresented {
+                    self.selectedPhoto = nil
+                }
             }
             .onChange(of: self.locationEnabledModeRaw) { _, newValue in
                 let previous = self.lastLocationModeRaw
@@ -225,47 +266,7 @@ struct SettingsTab: View {
         AnyView(
             Section {
             DisclosureGroup(isExpanded: self.$gatewayExpanded) {
-                if !self.isGatewayConnected {
-                    Text(
-                        "1. Open a chat with your OpenClaw agent and send /pair\n"
-                            + "2. Copy the setup code it returns\n"
-                            + "3. Paste here and tap Connect\n"
-                            + "4. Back in that chat, run /pair approve")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-
-                    if let warning = self.tailnetWarningText {
-                        Text(warning)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.orange)
-                    }
-
-                    TextField("Paste setup code", text: self.$setupCode)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Button {
-                        Task { await self.applySetupCodeAndConnect() }
-                    } label: {
-                        if self.connectingGatewayID == "manual" {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                Text("Connecting…")
-                            }
-                        } else {
-                            Text("Connect with setup code")
-                        }
-                    }
-                    .disabled(self.connectingGatewayID != nil
-                        || self.setupCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                    if let status = self.setupStatusLine {
-                        Text(status)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                self.knownGatewaysView
 
                 if self.isGatewayConnected {
                     Picker("Bot", selection: self.$selectedAgentPickerId) {
@@ -287,7 +288,6 @@ struct SettingsTab: View {
                 }
                 LabeledContent("Status", value: self.appModel.gatewayStatusText)
                 Toggle("Auto-connect on launch", isOn: self.$gatewayAutoConnect)
-
                 if let serverName = self.appModel.gatewayServerName {
                     LabeledContent("Server", value: serverName)
                     if let addr = self.appModel.gatewayRemoteAddress {
@@ -318,55 +318,9 @@ struct SettingsTab: View {
                             }
                         }
                     }
-
-                    Button {
-                        self.requestAddAnotherGateway()
-                    } label: {
-                        Label("Add Another Gateway", systemImage: "plus.circle")
-                    }
-
-                    Button("Disconnect", role: .destructive) {
-                        self.appModel.disconnectGateway()
-                    }
-                } else {
-                    self.gatewayList(showing: .all)
                 }
 
                 DisclosureGroup("Advanced") {
-                    Toggle("Use Manual Gateway", isOn: self.$manualGatewayEnabled)
-
-                    TextField("Host", text: self.$manualGatewayHost)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    TextField("Port (optional)", text: self.manualPortBinding)
-                        .keyboardType(.numberPad)
-
-                    Toggle("Use TLS", isOn: self.$manualGatewayTLS)
-
-                    Button {
-                        Task { await self.connectManual() }
-                    } label: {
-                        if self.connectingGatewayID == "manual" {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                Text("Connecting…")
-                            }
-                        } else {
-                            Text("Connect (Manual)")
-                        }
-                    }
-                    .disabled(self.connectingGatewayID != nil || self.manualGatewayHost
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                        .isEmpty || !self.manualPortIsValid)
-
-                    Text(
-                        "Use this when mDNS/Bonjour discovery is blocked. "
-                            + "Leave port empty for 443 on tailnet DNS (TLS) or 18789 otherwise.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-
                     Toggle("Discovery Debug Logs", isOn: self.$discoveryDebugLogsEnabled)
                         .onChange(of: self.discoveryDebugLogsEnabled) { _, newValue in
                             self.gatewayController.setDiscoveryDebugLoggingEnabled(newValue)
@@ -417,6 +371,245 @@ struct SettingsTab: View {
             }
         }
         )
+    }
+
+    @ViewBuilder
+    private var knownGatewaysView: some View {
+        if self.savedGatewayProfiles.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("No known gateways yet.")
+                    .foregroundStyle(.secondary)
+                Text("Add a gateway with QR pairing or by entering its address manually.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(self.savedGatewayProfiles) { profile in
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: self.selectedSavedGatewayID == profile.id ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(self.selectedSavedGatewayID == profile.id ? self.appModel.seamColor : .secondary)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(profile.resolvedName)
+                                    .font(.body.weight(.semibold))
+                                Spacer()
+                                Text(self.gatewayConnectionLabel(for: profile))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(self.gatewayConnectionColor(for: profile))
+                            }
+                            Text(profile.addressLabel)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            if let detail = self.gatewayConnectionDetail(for: profile) {
+                                Text(detail)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            HStack(spacing: 8) {
+                                Button {
+                                    Task { await self.connectSavedGateway(profile) }
+                                } label: {
+                                    if self.connectingGatewayID == profile.id {
+                                        ProgressView()
+                                            .progressViewStyle(.circular)
+                                    } else {
+                                        Text(self.currentGatewayProfileID == profile.id ? "Reconnect" : "Connect")
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(self.connectingGatewayID != nil)
+
+                                Button("Request Pairing") {
+                                    self.requestPairing(for: profile)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(self.connectingGatewayID != nil)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(uiColor: .secondarySystemBackground))
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        self.selectSavedGateway(profile)
+                    }
+                }
+            }
+        }
+
+        HStack {
+            Button {
+                self.addGatewayExpanded.toggle()
+            } label: {
+                Label("Add Gateway", systemImage: "plus.circle")
+            }
+            .buttonStyle(.borderless)
+
+            Spacer()
+
+            Button(role: .destructive) {
+                self.showRemoveGatewayAlert = true
+            } label: {
+                Label("Remove Gateway", systemImage: "minus.circle")
+            }
+            .buttonStyle(.borderless)
+            .disabled(self.selectedGatewayProfile == nil)
+        }
+
+        if self.addGatewayExpanded {
+            self.addGatewayPanel
+        }
+
+        if let status = self.setupStatusLine {
+            Text(status)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var addGatewayPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pair with QR or enter the gateway details manually.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Button {
+                self.openQRScanner()
+            } label: {
+                Label("Scan QR", systemImage: "qrcode.viewfinder")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(self.connectingGatewayID != nil)
+
+            Text("In your OpenClaw chat, run `/pair qr`, then scan the code here.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            TextField("Paste setup code", text: self.$setupCode)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("Apply setup code and connect") {
+                Task { await self.applySetupCodeAndConnect() }
+            }
+            .buttonStyle(.bordered)
+            .disabled(
+                self.connectingGatewayID != nil
+                    || self.setupCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+
+            Divider()
+
+            Toggle("Use Manual Gateway", isOn: self.$manualGatewayEnabled)
+
+            TextField("Host", text: self.$manualGatewayHost)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            TextField("Port (optional)", text: self.manualPortBinding)
+                .keyboardType(.numberPad)
+
+            Toggle("Use TLS", isOn: self.$manualGatewayTLS)
+
+            if let warning = self.tailnetWarningText {
+                Text(warning)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+
+            Button {
+                Task { await self.connectManual() }
+            } label: {
+                if self.connectingGatewayID == "manual" {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                        Text("Connecting…")
+                    }
+                } else {
+                    Text("Connect Manually")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(
+                self.connectingGatewayID != nil
+                    || self.manualGatewayHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || !self.manualPortIsValid
+            )
+
+            Text(
+                "Use this when mDNS or Bonjour discovery is blocked. Leave port empty for 443 on tailnet DNS with TLS or 18789 otherwise."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+    }
+
+    private var qrScannerSheet: some View {
+        NavigationStack {
+            QRScannerView(
+                onGatewayLink: { link in
+                    self.handleScannedLink(link)
+                },
+                onError: { error in
+                    self.showQRScanner = false
+                    self.setupStatusText = "Scanner error: \(error)"
+                    self.scannerError = error
+                },
+                onDismiss: {
+                    self.showQRScanner = false
+                })
+                .ignoresSafeArea()
+                .navigationTitle("Scan QR Code")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") { self.showQRScanner = false }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        PhotosPicker(selection: self.$selectedPhoto, matching: .images) {
+                            Label("Photos", systemImage: "photo")
+                        }
+                    }
+                }
+        }
+        .onChange(of: self.selectedPhoto) { _, newValue in
+            guard let item = newValue else { return }
+            self.selectedPhoto = nil
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self) else {
+                    self.showQRScanner = false
+                    self.scannerError = "Could not load the selected image."
+                    return
+                }
+                if let message = self.detectQRCode(from: data) {
+                    if let link = GatewayConnectDeepLink.fromSetupCode(message) {
+                        self.handleScannedLink(link)
+                        return
+                    }
+                    if let url = URL(string: message),
+                       let route = DeepLinkParser.parse(url),
+                       case let .gateway(link) = route
+                    {
+                        self.handleScannedLink(link)
+                        return
+                    }
+                }
+                self.showQRScanner = false
+                self.scannerError = "No valid QR code found in the selected image."
+            }
+        }
     }
 
     private var deviceSettingsSection: AnyView {
@@ -563,81 +756,6 @@ struct SettingsTab: View {
         )
     }
 
-    @ViewBuilder
-    private func gatewayList(showing: GatewayListMode) -> some View {
-        if self.gatewayController.gateways.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("No gateways found yet.")
-                    .foregroundStyle(.secondary)
-                Text("If your gateway is on another network, connect it and ensure DNS is working.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                if let lastKnown = GatewaySettingsStore.loadLastGatewayConnection(),
-                   case let .manual(host, port, _, _) = lastKnown
-                {
-                    Button {
-                        Task { await self.connectLastKnown() }
-                    } label: {
-                        self.lastKnownButtonLabel(host: host, port: port)
-                    }
-                    .disabled(self.connectingGatewayID != nil)
-                    .buttonStyle(.borderedProminent)
-                    .tint(self.appModel.seamColor)
-                }
-            }
-        } else {
-            let connectedID = self.appModel.connectedGatewayID
-            let rows = self.gatewayController.gateways.filter { gateway in
-                let isConnected = gateway.stableID == connectedID
-                switch showing {
-                case .all:
-                    return true
-                case .availableOnly:
-                    return !isConnected
-                }
-            }
-
-            if rows.isEmpty, showing == .availableOnly {
-                Text("No other gateways found.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(rows) { gateway in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            // Avoid localized-string formatting edge cases from Bonjour-advertised names.
-                            Text(verbatim: gateway.name)
-                            let detailLines = self.gatewayDetailLines(gateway)
-                            ForEach(detailLines, id: \.self) { line in
-                                Text(verbatim: line)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-
-                        Button {
-                            Task { await self.connect(gateway) }
-                        } label: {
-                            if self.connectingGatewayID == gateway.id {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                            } else {
-                                Text("Connect")
-                            }
-                        }
-                        .disabled(self.connectingGatewayID != nil)
-                    }
-                }
-            }
-        }
-    }
-
-    private enum GatewayListMode: Equatable {
-        case all
-        case availableOnly
-    }
-
     private var isGatewayConnected: Bool {
         let status = self.appModel.gatewayStatusText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if status.contains("connected") { return true }
@@ -658,6 +776,136 @@ struct SettingsTab: View {
         self.addAnotherGatewayMode = true
         self.onboardingRequestID &+= 1
         self.dismiss()
+    }
+
+    private var currentGatewayProfileID: String? {
+        let stableID = (self.appModel.connectedGatewayID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let host = self.appModel.activeGatewayConnectConfig?.url.host
+        let port = self.appModel.activeGatewayConnectConfig?.url.port
+        let useTLS = self.appModel.activeGatewayConnectConfig?.url.scheme?.lowercased() == "wss"
+
+        return GatewaySettingsStore.findSavedGatewayProfile(
+            stableID: stableID.isEmpty ? nil : stableID,
+            hosts: host.map { [$0] } ?? [],
+            port: port,
+            useTLS: useTLS
+        )?.id
+    }
+
+    private var selectedGatewayProfile: GatewaySettingsStore.SavedGatewayProfile? {
+        guard let selectedSavedGatewayID else { return nil }
+        return self.savedGatewayProfiles.first(where: { $0.id == selectedSavedGatewayID })
+    }
+
+    private func refreshSavedGatewayProfiles() {
+        self.savedGatewayProfiles = GatewaySettingsStore.loadSavedGatewayProfiles()
+    }
+
+    private func syncSelectedSavedGateway() {
+        if let selectedSavedGatewayID,
+           self.savedGatewayProfiles.contains(where: { $0.id == selectedSavedGatewayID })
+        {
+            return
+        }
+
+        if let currentGatewayProfileID,
+           self.savedGatewayProfiles.contains(where: { $0.id == currentGatewayProfileID })
+        {
+            self.selectedSavedGatewayID = currentGatewayProfileID
+            return
+        }
+
+        self.selectedSavedGatewayID = self.savedGatewayProfiles.first?.id
+    }
+
+    private func selectSavedGateway(_ profile: GatewaySettingsStore.SavedGatewayProfile) {
+        self.selectedSavedGatewayID = profile.id
+        self.manualGatewayEnabled = true
+        self.manualGatewayHost = profile.host
+        self.manualGatewayPort = profile.port
+        self.manualGatewayTLS = profile.useTLS
+        self.syncManualPortText()
+    }
+
+    private func connectSavedGateway(_ profile: GatewaySettingsStore.SavedGatewayProfile) async {
+        self.selectSavedGateway(profile)
+        self.connectingGatewayID = profile.id
+        defer { self.connectingGatewayID = nil }
+        await self.connectManual()
+    }
+
+    private func requestPairing(for profile: GatewaySettingsStore.SavedGatewayProfile) {
+        self.selectSavedGateway(profile)
+        self.addGatewayExpanded = true
+        self.setupCode = ""
+        self.setupStatusText = "In your OpenClaw chat, run /pair qr, then scan the QR code for \(profile.resolvedName)."
+        self.openQRScanner()
+    }
+
+    private func removeSelectedGateway() {
+        guard let profile = self.selectedGatewayProfile else { return }
+        GatewaySettingsStore.deleteSavedGatewayProfile(id: profile.id)
+        if self.currentGatewayProfileID == profile.id {
+            self.appModel.disconnectGateway()
+            GatewaySettingsStore.clearLastGatewayConnection()
+        }
+        if self.preferredGatewayStableID == (profile.stableID ?? "") {
+            self.preferredGatewayStableID = ""
+        }
+        self.refreshSavedGatewayProfiles()
+        self.syncSelectedSavedGateway()
+    }
+
+    private func gatewayConnectionLabel(for profile: GatewaySettingsStore.SavedGatewayProfile) -> String {
+        if self.currentGatewayProfileID == profile.id && self.isGatewayConnected {
+            return "Connected"
+        }
+        if self.connectingGatewayID == profile.id {
+            return "Connecting"
+        }
+        if self.isGatewayDiscovered(profile) {
+            return "Available"
+        }
+        return "Saved"
+    }
+
+    private func gatewayConnectionColor(for profile: GatewaySettingsStore.SavedGatewayProfile) -> Color {
+        switch self.gatewayConnectionLabel(for: profile) {
+        case "Connected":
+            return .green
+        case "Connecting":
+            return .orange
+        case "Available":
+            return .blue
+        default:
+            return .secondary
+        }
+    }
+
+    private func gatewayConnectionDetail(for profile: GatewaySettingsStore.SavedGatewayProfile) -> String? {
+        if self.currentGatewayProfileID == profile.id {
+            let trimmed = self.appModel.gatewayStatusText.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if self.isGatewayDiscovered(profile) {
+            return "Visible on this network"
+        }
+        return nil
+    }
+
+    private func isGatewayDiscovered(_ profile: GatewaySettingsStore.SavedGatewayProfile) -> Bool {
+        let normalizedHost = profile.host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return self.gatewayController.gateways.contains { gateway in
+            if let stableID = profile.stableID?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !stableID.isEmpty,
+               gateway.stableID == stableID
+            {
+                return true
+            }
+            let candidateHosts = [gateway.lanHost, gateway.tailnetDns]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            return candidateHosts.contains(normalizedHost)
+        }
     }
 
     private func featureToggle(
@@ -738,6 +986,66 @@ struct SettingsTab: View {
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    private func openQRScanner() {
+        self.addGatewayExpanded = true
+        self.setupStatusText = "Opening QR scanner…"
+        self.showQRScanner = true
+    }
+
+    private func handleScannedLink(_ link: GatewayConnectDeepLink) {
+        self.manualGatewayEnabled = true
+        self.manualGatewayHost = link.host
+        self.manualGatewayPort = link.port
+        self.manualGatewayPortText = String(link.port)
+        self.manualGatewayTLS = link.tls
+
+        let trimmedBootstrapToken = link.bootstrapToken?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let token = link.token?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty {
+            self.gatewayToken = token
+        } else if trimmedBootstrapToken?.isEmpty == false {
+            self.gatewayToken = ""
+        }
+
+        if let password = link.password?.trimmingCharacters(in: .whitespacesAndNewlines), !password.isEmpty {
+            self.gatewayPassword = password
+        } else if trimmedBootstrapToken?.isEmpty == false {
+            self.gatewayPassword = ""
+        }
+
+        let trimmedInstanceId = self.instanceId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedInstanceId.isEmpty {
+            GatewaySettingsStore.saveGatewayBootstrapToken(trimmedBootstrapToken ?? "", instanceId: trimmedInstanceId)
+            GatewaySettingsStore.saveGatewayToken(self.gatewayToken, instanceId: trimmedInstanceId)
+            GatewaySettingsStore.saveGatewayPassword(self.gatewayPassword, instanceId: trimmedInstanceId)
+        }
+
+        self.showQRScanner = false
+        self.addGatewayExpanded = true
+        self.setupStatusText = "QR loaded. Connecting to \(link.host):\(link.port)…"
+
+        Task {
+            await self.connectManual()
+            self.refreshSavedGatewayProfiles()
+            self.syncSelectedSavedGateway()
+        }
+    }
+
+    private func detectQRCode(from data: Data) -> String? {
+        guard let ciImage = CIImage(data: data) else { return nil }
+        let detector = CIDetector(
+            ofType: CIDetectorTypeQRCode,
+            context: nil,
+            options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]
+        )
+        let features = detector?.features(in: ciImage) ?? []
+        for feature in features {
+            if let qr = feature as? CIQRCodeFeature, let message = qr.messageString {
+                return message
+            }
+        }
+        return nil
     }
 
     private var manualPortBinding: Binding<String> {

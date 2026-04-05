@@ -1848,8 +1848,8 @@ private extension NodeAppModel {
         self.apnsLastRegisteredTokenHex = nil
     }
 
-<<<<<<< HEAD
-=======
+
+
     func shouldStartOperatorGatewayLoop(
         token: String?,
         bootstrapToken: String?,
@@ -1927,7 +1927,7 @@ private extension NodeAppModel {
             GatewaySettingsStore.loadGatewayBootstrapToken(instanceId: trimmedInstanceId) != nil
         else { return }
 
-        GatewaySettingsStore.clearGatewayBootstrapToken(instanceId: trimmedInstanceId)
+        GatewaySettingsStore.saveGatewayBootstrapToken("", instanceId: trimmedInstanceId)
     }
 
     private func handleSuccessfulBootstrapGatewayOnboarding(
@@ -1959,8 +1959,6 @@ private extension NodeAppModel {
         // prompt immediately so visible APNs alerts work without a second manual step.
         _ = await self.requestNotificationAuthorizationIfNeeded()
     }
-
->>>>>>> main
     func refreshBackgroundReconnectSuppressionIfNeeded(source: String) {
         guard self.isBackgrounded else { return }
         guard !self.backgroundReconnectSuppressed else { return }
@@ -2131,15 +2129,6 @@ private extension NodeAppModel {
 
                 do {
                     let epochMs = Int(Date().timeIntervalSince1970 * 1000)
-<<<<<<< HEAD
-                    GatewayDiagnostics.log("connect attempt epochMs=\(epochMs) url=\(url.absoluteString)")
-                    try await self.nodeGateway.connect(
-                        url: url,
-                        token: token,
-                        bootstrapToken: bootstrapToken,
-                        password: password,
-                        connectOptions: currentOptions,
-=======
                     let reconnectAuth = self.currentGatewayReconnectAuth(
                         fallbackToken: token,
                         fallbackBootstrapToken: bootstrapToken,
@@ -2152,7 +2141,6 @@ private extension NodeAppModel {
                         bootstrapToken: reconnectAuth.bootstrapToken,
                         password: reconnectAuth.password,
                         connectOptions: connectedOptions,
->>>>>>> main
                         sessionBox: sessionBox,
                         onConnected: { [weak self] in
                             guard let self else { return }
@@ -2163,8 +2151,6 @@ private extension NodeAppModel {
                                 self.screen.errorText = nil
                                 UserDefaults.standard.set(true, forKey: "gateway.autoconnect")
                             }
-<<<<<<< HEAD
-=======
                             let usedBootstrapToken =
                                 reconnectAuth.token?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false &&
                                 reconnectAuth.bootstrapToken?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2178,7 +2164,6 @@ private extension NodeAppModel {
                                     nodeOptions: connectedOptions,
                                     sessionBox: sessionBox)
                             }
->>>>>>> main
                             let relayData = await MainActor.run {
                                 (
                                     sessionKey: self.mainSessionKey,
@@ -2189,8 +2174,8 @@ private extension NodeAppModel {
                             ShareGatewayRelaySettings.saveConfig(
                                 ShareGatewayRelayConfig(
                                     gatewayURLString: url.absoluteString,
-                                    token: token,
-                                    password: password,
+                                    token: reconnectAuth.token,
+                                    password: reconnectAuth.password,
                                     sessionKey: relayData.sessionKey,
                                     deliveryChannel: relayData.deliveryChannel,
                                     deliveryTo: relayData.deliveryTo))
@@ -2375,11 +2360,7 @@ private extension NodeAppModel {
         }
         return GatewayConnectOptions(
             role: "operator",
-<<<<<<< HEAD
-            scopes: ["operator.read", "operator.write"],
-=======
             scopes: scopes,
->>>>>>> main
             caps: [],
             commands: [],
             permissions: [:],
@@ -2884,8 +2865,8 @@ extension NodeAppModel {
         var expiresAtMs: Int?
     }
 
-    func presentExecApprovalNotificationPrompt(_ prompt: ExecApprovalNotificationPrompt) async {
-        let approvalId = prompt.approvalId.trimmingCharacters(in: .whitespacesAndNewlines)
+    func presentExecApprovalNotificationPrompt(_ prompt: ExecApprovalPrompt) async {
+        let approvalId = prompt.id.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !approvalId.isEmpty else { return }
 
         self.pendingExecApprovalPromptRequestGeneration &+= 1
@@ -3602,8 +3583,6 @@ extension NodeAppModel {
     static func _test_currentDeepLinkKey() -> String {
         self.expectedDeepLinkKey()
     }
-<<<<<<< HEAD
-=======
 
     nonisolated static func _test_shouldStartOperatorGatewayLoop(
         token: String?,
@@ -3652,8 +3631,6 @@ extension NodeAppModel {
                 clientDisplayName: nil),
             sessionBox: nil)
     }
-
->>>>>>> main
 }
 #endif
 // swiftlint:enable type_body_length file_length

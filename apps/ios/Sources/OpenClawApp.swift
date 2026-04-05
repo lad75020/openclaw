@@ -13,7 +13,11 @@ private struct PendingWatchPromptAction {
     var sessionKey: String?
 }
 
-private typealias PendingExecApprovalPrompt = ExecApprovalNotificationPrompt
+private struct NotificationUserInfoSnapshot: @unchecked Sendable {
+    let values: [AnyHashable: Any]
+}
+
+private typealias PendingExecApprovalPrompt = NodeAppModel.ExecApprovalPrompt
 
 @MainActor
 final class OpenClawAppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
@@ -91,13 +95,14 @@ final class OpenClawAppDelegate: NSObject, UIApplicationDelegate, @preconcurrenc
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void)
     {
         self.logger.info("APNs remote notification received keys=\(userInfo.keys.count, privacy: .public)")
+        let snapshot = NotificationUserInfoSnapshot(values: userInfo)
         Task { @MainActor in
             let notificationCenter = LiveNotificationCenter()
             if await ExecApprovalNotificationBridge.handleResolvedPushIfNeeded(
-                userInfo: userInfo,
+                userInfo: snapshot.values,
                 notificationCenter: notificationCenter)
             {
-                if let approvalId = ExecApprovalNotificationBridge.approvalID(from: userInfo) {
+                if let approvalId = ExecApprovalNotificationBridge.approvalID(from: snapshot.values) {
                     self.appModel?.dismissPendingExecApprovalPrompt(approvalId: approvalId)
                 }
                 completionHandler(.newData)
@@ -109,7 +114,7 @@ final class OpenClawAppDelegate: NSObject, UIApplicationDelegate, @preconcurrenc
                 completionHandler(.noData)
                 return
             }
-            let handled = await appModel.handleSilentPushWake(userInfo)
+            let handled = await appModel.handleSilentPushWake(snapshot.values)
             self.logger.info("APNs wake handled=\(handled, privacy: .public)")
             if !handled {
                 self.scheduleBackgroundWakeRefresh(afterSeconds: 90, reason: "silent_push_not_applied")
@@ -520,6 +525,130 @@ enum WatchPromptNotificationBridge {
                 ThrowingContinuationSupport.resumeVoid(continuation, error: error)
             }
         }
+    }
+}
+
+@MainActor
+enum ExecApprovalNotificationBridge {
+    static let typeKey = "openclaw.type"
+    static let typeValue = "exec.approval"
+    static let approvalIDKey = "openclaw.exec.approval.id"
+    static let actionAllowOnceIdentifier = "openclaw.exec.approval.allow-once"
+    static let actionAllowAlwaysIdentifier = "openclaw.exec.approval.allow-always"
+    static let actionDenyIdentifier = "openclaw.exec.approval.deny"
+    private static let resolvedKinds: Set<String> = [
+        "exec.approval.resolved",
+        "exec.approval.cleanup",
+    ]
+
+    static func approvalID(from userInfo: [AnyHashable: Any]) -> String? {
+        self.normalizedText(userInfo[self.approvalIDKey])
+            ?? self.normalizedText(userInfo["approvalId"])
+            ?? self.normalizedText(self.openClawPayloadValue("approvalId", userInfo: userInfo))
+            ?? self.normalizedText(self.openClawPayloadValue("approval_id", userInfo: userInfo))
+    }
+
+    static func shouldPresentNotification(userInfo: [AnyHashable: Any]) -> Bool {
+        self.notificationType(from: userInfo) == self.typeValue && self.approvalID(from: userInfo) != nil
+    }
+
+    static func parsePrompt(
+        actionIdentifier: String,
+        userInfo: [AnyHashable: Any]
+    ) -> NodeAppModel.ExecApprovalPrompt? {
+        guard self.shouldPresentNotification(userInfo: userInfo),
+              let approvalId = self.approvalID(from: userInfo)
+        else {
+            return nil
+        }
+
+        let allowedDecisions: [String]
+        switch actionIdentifier {
+        case self.actionAllowOnceIdentifier:
+            allowedDecisions = ["allow-once"]
+        case self.actionAllowAlwaysIdentifier:
+            allowedDecisions = ["allow-always"]
+        case self.actionDenyIdentifier:
+            allowedDecisions = ["deny"]
+        default:
+            return nil
+        }
+
+        // The full prompt is fetched from the gateway after the user taps the notification action.
+        return NodeAppModel.ExecApprovalPrompt(
+            id: approvalId,
+            commandText: "Pending approval",
+            allowedDecisions: allowedDecisions,
+            host: nil,
+            nodeId: nil,
+            agentId: nil,
+            expiresAtMs: nil)
+    }
+
+    static func handleResolvedPushIfNeeded(
+        userInfo: [AnyHashable: Any],
+        notificationCenter: any NotificationCentering
+    ) async -> Bool {
+        guard self.isResolvedPush(userInfo: userInfo),
+              let approvalId = self.approvalID(from: userInfo)
+        else {
+            return false
+        }
+
+        await self.removeNotifications(forApprovalID: approvalId, notificationCenter: notificationCenter)
+        return true
+    }
+
+    static func removeNotifications(
+        forApprovalID approvalId: String,
+        notificationCenter: any NotificationCentering
+    ) async {
+        let normalizedApprovalID = approvalId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedApprovalID.isEmpty else { return }
+        let identifiers = await self.notificationIdentifiers(
+            forApprovalID: normalizedApprovalID,
+            notificationCenter: notificationCenter)
+        guard !identifiers.isEmpty else { return }
+        await notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+        await notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
+    }
+
+    private static func notificationIdentifiers(
+        forApprovalID approvalId: String,
+        notificationCenter: any NotificationCentering
+    ) async -> [String] {
+        let notifications = await notificationCenter.deliveredNotifications()
+        return notifications.compactMap { notification in
+            self.approvalID(from: notification.userInfo) == approvalId ? notification.identifier : nil
+        }
+    }
+
+    private static func isResolvedPush(userInfo: [AnyHashable: Any]) -> Bool {
+        guard let kind = self.normalizedText(self.openClawPayloadValue("kind", userInfo: userInfo)) else {
+            return false
+        }
+        return self.resolvedKinds.contains(kind)
+    }
+
+    private static func notificationType(from userInfo: [AnyHashable: Any]) -> String? {
+        self.normalizedText(userInfo[self.typeKey])
+            ?? self.normalizedText(self.openClawPayloadValue("type", userInfo: userInfo))
+    }
+
+    private static func openClawPayloadValue(_ key: String, userInfo: [AnyHashable: Any]) -> Any? {
+        if let payload = userInfo["openclaw"] as? [String: Any] {
+            return payload[key]
+        }
+        if let payload = userInfo["openclaw"] as? [AnyHashable: Any] {
+            return payload[key]
+        }
+        return nil
+    }
+
+    private static func normalizedText(_ value: Any?) -> String? {
+        guard let text = value as? String else { return nil }
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
     }
 }
 

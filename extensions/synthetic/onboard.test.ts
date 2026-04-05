@@ -1,7 +1,11 @@
 import { resolveAgentModelPrimaryValue } from "openclaw/plugin-sdk/provider-onboard";
+<<<<<<< HEAD
 import { SYNTHETIC_DEFAULT_MODEL_ID } from "openclaw/plugin-sdk/synthetic";
+=======
+>>>>>>> main
 import { describe, expect, it } from "vitest";
 import { createLegacyProviderConfig } from "../../test/helpers/plugins/onboard-config.js";
+import { SYNTHETIC_DEFAULT_MODEL_REF as SYNTHETIC_DEFAULT_MODEL_REF_PUBLIC } from "./api.js";
 import {
   applySyntheticConfig,
   applySyntheticProviderConfig,

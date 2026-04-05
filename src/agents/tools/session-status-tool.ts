@@ -40,6 +40,10 @@ import {
   resolveDefaultModelForAgent,
   resolveModelRefFromString,
 } from "../model-selection.js";
+import {
+  describeSessionStatusTool,
+  SESSION_STATUS_TOOL_DISPLAY_SUMMARY,
+} from "../tool-description-presets.js";
 import type { AnyAgentTool } from "./common.js";
 import { readStringParam } from "./common.js";
 import {
@@ -226,8 +230,8 @@ export function createSessionStatusTool(opts?: {
   return {
     label: "Session Status",
     name: "session_status",
-    description:
-      "Show a /status-equivalent session status card (usage + time + cost when available), including linked background task context when present. Use for model-use questions (📊 session_status). Optional: set per-session model override (model=default resets overrides).",
+    displaySummary: SESSION_STATUS_TOOL_DISPLAY_SUMMARY,
+    description: describeSessionStatusTool(),
     parameters: SessionStatusToolSchema,
     execute: async (_toolCallId, args) => {
       const params = args as Record<string, unknown>;
@@ -440,6 +444,7 @@ export function createSessionStatusTool(opts?: {
                   model: selection.model,
                   isDefault: selection.isDefault,
                 },
+          markLiveSwitchPending: true,
         });
         if (applied.updated) {
           store[resolved.key] = nextEntry;
@@ -556,6 +561,7 @@ export function createSessionStatusTool(opts?: {
             : undefined,
         sessionEntry: statusSessionEntry,
         sessionKey: resolved.key,
+<<<<<<< HEAD
         sessionStorePath: storePath,
         groupActivation,
         modelAuth: resolveModelAuthLabel({
@@ -574,6 +580,30 @@ export function createSessionStatusTool(opts?: {
           dropPolicy: queueSettings.dropPolicy,
           showDetails: queueOverrides,
         },
+=======
+        parentSessionKey: statusSessionEntry.parentSessionKey,
+        sessionScope: cfg.session?.scope,
+        storePath,
+        statusChannel:
+          statusSessionEntry.channel ??
+          statusSessionEntry.lastChannel ??
+          statusSessionEntry.origin?.provider ??
+          "unknown",
+        provider: providerForCard,
+        model: defaultModelForCard,
+        resolvedThinkLevel: statusSessionEntry.thinkingLevel as ThinkLevel | undefined,
+        resolvedFastMode: statusSessionEntry.fastMode,
+        resolvedVerboseLevel: (statusSessionEntry.verboseLevel ?? "off") as VerboseLevel,
+        resolvedReasoningLevel: (statusSessionEntry.reasoningLevel ?? "off") as ReasoningLevel,
+        resolvedElevatedLevel: statusSessionEntry.elevatedLevel as ElevatedLevel | undefined,
+        resolveDefaultThinkingLevel: async () => cfg.agents?.defaults?.thinkingDefault,
+        isGroup,
+        defaultGroupActivation: () => "mention",
+        taskLineOverride: taskLine,
+        skipDefaultTaskLookup: true,
+        primaryModelLabelOverride: primaryModelLabel,
+        ...(providerForCard ? {} : { modelAuthOverride: undefined }),
+>>>>>>> main
         includeTranscriptUsage: true,
       });
       const taskLine = formatSessionTaskLine(resolved.key);

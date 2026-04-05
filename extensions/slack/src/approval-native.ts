@@ -1,7 +1,17 @@
 import {
+<<<<<<< HEAD
   createApproverRestrictedNativeApprovalAdapter,
   resolveExecApprovalSessionTarget,
 } from "openclaw/plugin-sdk/approval-runtime";
+=======
+  createApproverRestrictedNativeApprovalCapability,
+  splitChannelApprovalCapability,
+} from "openclaw/plugin-sdk/approval-delivery-runtime";
+import {
+  createChannelApproverDmTargetResolver,
+  createChannelNativeOriginTargetResolver,
+} from "openclaw/plugin-sdk/approval-native-runtime";
+>>>>>>> main
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import type {
   ExecApprovalRequest,
@@ -157,6 +167,7 @@ function slackTargetsMatch(a: SlackOriginTarget, b: SlackOriginTarget): boolean 
   );
 }
 
+<<<<<<< HEAD
 function resolveSlackOriginTarget(params: {
   cfg: OpenClawConfig;
   accountId: string;
@@ -173,22 +184,33 @@ function resolveSlackOriginTarget(params: {
   const target = turnSourceTarget ?? sessionTarget;
   return target ? { to: target.to, threadId: target.threadId } : null;
 }
+=======
+const resolveSlackOriginTarget = createChannelNativeOriginTargetResolver({
+  channel: "slack",
+  shouldHandleRequest: ({ cfg, accountId, request }) =>
+    shouldHandleSlackExecApprovalRequest({
+      cfg,
+      accountId,
+      request,
+    }),
+  resolveTurnSourceTarget: resolveTurnSourceSlackOriginTarget,
+  resolveSessionTarget: resolveSessionSlackOriginTarget,
+  targetsMatch: slackTargetsMatch,
+});
+>>>>>>> main
 
-function resolveSlackApproverDmTargets(params: {
-  cfg: OpenClawConfig;
-  accountId?: string | null;
-  request: ApprovalRequest;
-}) {
-  if (!shouldHandleSlackExecApprovalRequest(params)) {
-    return [];
-  }
-  return getSlackExecApprovalApprovers({
-    cfg: params.cfg,
-    accountId: params.accountId,
-  }).map((approver) => ({ to: `user:${approver}` }));
-}
+const resolveSlackApproverDmTargets = createChannelApproverDmTargetResolver({
+  shouldHandleRequest: ({ cfg, accountId, request }) =>
+    shouldHandleSlackExecApprovalRequest({
+      cfg,
+      accountId,
+      request,
+    }),
+  resolveApprovers: getSlackExecApprovalApprovers,
+  mapApprover: (approver) => ({ to: `user:${approver}` }),
+});
 
-export const slackNativeApprovalAdapter = createApproverRestrictedNativeApprovalAdapter({
+export const slackApprovalCapability = createApproverRestrictedNativeApprovalCapability({
   channel: "slack",
   channelLabel: "Slack",
   listAccountIds: listSlackAccountIds,
@@ -205,9 +227,9 @@ export const slackNativeApprovalAdapter = createApproverRestrictedNativeApproval
   requireMatchingTurnSourceChannel: true,
   resolveSuppressionAccountId: ({ target, request }) =>
     target.accountId?.trim() || request.request.turnSourceAccountId?.trim() || undefined,
-  resolveOriginTarget: ({ cfg, accountId, request }) =>
-    accountId ? resolveSlackOriginTarget({ cfg, accountId, request }) : null,
-  resolveApproverDmTargets: ({ cfg, accountId, request }) =>
-    resolveSlackApproverDmTargets({ cfg, accountId, request }),
+  resolveOriginTarget: resolveSlackOriginTarget,
+  resolveApproverDmTargets: resolveSlackApproverDmTargets,
   notifyOriginWhenDmOnly: true,
 });
+
+export const slackNativeApprovalAdapter = splitChannelApprovalCapability(slackApprovalCapability);

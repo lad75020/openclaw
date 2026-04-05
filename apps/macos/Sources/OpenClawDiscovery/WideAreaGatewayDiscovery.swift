@@ -39,6 +39,7 @@ enum WideAreaGatewayDiscovery {
             timeoutSeconds - Date().timeIntervalSince(startedAt)
         }
 
+<<<<<<< HEAD
         guard let ips = collectTailnetIPv4s(
             statusJson: context.tailscaleStatus()).nonEmpty else { return [] }
         var candidates = Array(ips.prefix(self.maxCandidates))
@@ -49,6 +50,14 @@ enum WideAreaGatewayDiscovery {
         else {
             return []
         }
+=======
+        guard let statusJson = context.tailscaleStatus(),
+              !collectTailnetIPv4s(statusJson: statusJson).isEmpty,
+              let discovery = loadWideAreaPtrRecords(
+                  remaining: remaining,
+                  dig: context.dig)
+        else { return [] }
+>>>>>>> main
 
         guard let domain = OpenClawBonjour.wideAreaGatewayServiceDomain else { return [] }
         let domainTrimmed = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))

@@ -53,7 +53,9 @@ export function resolveOverloadFailoverBackoffMs(cfg?: OpenClawConfig): number {
 export const MAX_OVERLOAD_PROFILE_ROTATIONS = 1;
 
 export function resolveRateLimitProfileRotationLimit(cfg?: OpenClawConfig): number {
-  return cfg?.auth?.cooldowns?.rateLimitedProfileRotations ?? DEFAULT_MAX_RATE_LIMIT_PROFILE_ROTATIONS;
+  return (
+    cfg?.auth?.cooldowns?.rateLimitedProfileRotations ?? DEFAULT_MAX_RATE_LIMIT_PROFILE_ROTATIONS
+  );
 }
 
 const ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL = "ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL";

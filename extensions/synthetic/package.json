@@ -1,9 +1,13 @@
 {
   "name": "@openclaw/synthetic-provider",
 <<<<<<< HEAD
+<<<<<<< HEAD
   "version": "2026.3.31",
 =======
   "version": "2026.4.1-beta.1",
+>>>>>>> main
+=======
+  "version": "2026.4.4",
 >>>>>>> main
   "private": true,
   "description": "OpenClaw Synthetic provider plugin",

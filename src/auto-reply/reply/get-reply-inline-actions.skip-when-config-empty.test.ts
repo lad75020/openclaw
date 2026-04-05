@@ -24,8 +24,10 @@ async function loadFreshInlineActionsModuleForTest() {
   vi.doMock("../../agents/openclaw-tools.runtime.js", () => ({
     createOpenClawTools: (...args: unknown[]) => createOpenClawToolsMock(...args),
   }));
-  vi.doMock("../../channels/plugins/index.js", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("../../channels/plugins/index.js")>();
+  vi.doMock("../../channels/plugins/index.js", async () => {
+    const actual = await vi.importActual<typeof import("../../channels/plugins/index.js")>(
+      "../../channels/plugins/index.js",
+    );
     return {
       ...actual,
       getChannelPlugin: (...args: unknown[]) => getChannelPluginMock(...args),
@@ -122,7 +124,11 @@ describe("handleInlineActions", () => {
     createOpenClawToolsMock.mockReset();
     createOpenClawToolsMock.mockReturnValue([]);
     getChannelPluginMock.mockImplementation((channelId?: string) =>
-      channelId === "whatsapp" ? { commands: { skipWhenConfigEmpty: true } } : undefined,
+      channelId === "whatsapp"
+        ? { commands: { skipWhenConfigEmpty: true } }
+        : channelId === "discord"
+          ? { mentions: { stripPatterns: () => ["<@!?\\d+>"] } }
+          : undefined,
     );
     await loadFreshInlineActionsModuleForTest();
   });

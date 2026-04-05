@@ -17,8 +17,8 @@ if [[ -n "${publish_target}" && -f "${publish_target}" ]]; then
 fi
 
 package_version="$(node -p "require('./package.json').version")"
-current_beta_version="$(npm view openclaw dist-tags.beta 2>/dev/null || true)"
 mapfile -t publish_plan < <(
+<<<<<<< HEAD
   PACKAGE_VERSION="${package_version}" CURRENT_BETA_VERSION="${current_beta_version}" node --import tsx --input-type=module <<'EOF'
 import { resolveNpmPublishPlan } from "./scripts/openclaw-npm-release-check.ts";
 
@@ -29,20 +29,38 @@ const plan = resolveNpmPublishPlan(
 console.log(plan.channel);
 console.log(plan.publishTag);
 console.log(plan.mirrorDistTags.join(","));
+=======
+  PACKAGE_VERSION="${package_version}" REQUESTED_PUBLISH_TAG="${OPENCLAW_NPM_PUBLISH_TAG:-}" \
+    node --import tsx --input-type=module <<'EOF'
+import { resolveNpmPublishPlan } from "./scripts/openclaw-npm-release-check.ts";
+
+const requestedPublishTag =
+  process.env.REQUESTED_PUBLISH_TAG === "latest" ? "latest" : "beta";
+const plan = resolveNpmPublishPlan(process.env.PACKAGE_VERSION ?? "", undefined, requestedPublishTag);
+console.log(plan.channel);
+console.log(plan.publishTag);
+>>>>>>> main
 EOF
 )
 
 release_channel="${publish_plan[0]}"
 publish_tag="${publish_plan[1]}"
+<<<<<<< HEAD
 mirror_dist_tags_csv="${publish_plan[2]:-}"
 publish_cmd=(npm publish --access public --tag "${publish_tag}" --provenance)
+=======
+publish_cmd=(npm publish)
+if [[ -n "${publish_target}" ]]; then
+  publish_cmd+=("${publish_target}")
+fi
+publish_cmd+=(--access public --tag "${publish_tag}" --provenance)
+>>>>>>> main
 
 echo "Resolved package version: ${package_version}"
-echo "Current beta dist-tag: ${current_beta_version:-<missing>}"
 echo "Resolved release channel: ${release_channel}"
 echo "Resolved publish tag: ${publish_tag}"
-echo "Resolved mirror dist-tags: ${mirror_dist_tags_csv:-<none>}"
 echo "Publish auth: GitHub OIDC trusted publishing"
+<<<<<<< HEAD
 
 if [[ -n "${mirror_dist_tags_csv}" ]]; then
   mirror_userconfig="$(mktemp)"
@@ -56,6 +74,10 @@ if [[ -n "${mirror_dist_tags_csv}" ]]; then
     echo "Rotate or replace NODE_AUTH_TOKEN/NPM_TOKEN, then rerun the release workflow." >&2
     exit 1
   fi
+=======
+if [[ -n "${publish_target}" ]]; then
+  echo "Resolved publish target: ${publish_target}"
+>>>>>>> main
 fi
 
 printf 'Publish command:'
@@ -63,6 +85,7 @@ printf ' %q' "${publish_cmd[@]}"
 printf '\n'
 
 "${publish_cmd[@]}"
+<<<<<<< HEAD
 
 if [[ -n "${mirror_dist_tags_csv}" ]]; then
   IFS=',' read -r -a mirror_dist_tags <<< "${mirror_dist_tags_csv}"
@@ -72,3 +95,5 @@ if [[ -n "${mirror_dist_tags_csv}" ]]; then
     npm dist-tag add "openclaw@${package_version}" "${dist_tag}"
   done
 fi
+=======
+>>>>>>> main

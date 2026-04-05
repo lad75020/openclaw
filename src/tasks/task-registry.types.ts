@@ -55,6 +55,7 @@ export type TaskRecord = {
   sourceId?: string;
   requesterSessionKey: string;
   childSessionKey?: string;
+  parentFlowId?: string;
   parentTaskId?: string;
   agentId?: string;
   runId?: string;

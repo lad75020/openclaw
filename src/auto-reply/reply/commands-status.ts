@@ -116,6 +116,50 @@ export async function buildStatusReply(params: {
   defaultGroupActivation: () => "always" | "mention";
   mediaDecisions?: MediaUnderstandingDecision[];
 }): Promise<ReplyPayload | undefined> {
+<<<<<<< HEAD
+=======
+  const { command } = params;
+  if (!command.isAuthorizedSender) {
+    logVerbose(`Ignoring /status from unauthorized sender: ${command.senderId || "<unknown>"}`);
+    return undefined;
+  }
+
+  return {
+    text: await buildStatusText({
+      ...params,
+      statusChannel: command.channel,
+    }),
+  };
+}
+
+export async function buildStatusText(params: {
+  cfg: OpenClawConfig;
+  sessionEntry?: SessionEntry;
+  sessionKey: string;
+  parentSessionKey?: string;
+  sessionScope?: SessionScope;
+  storePath?: string;
+  statusChannel: string;
+  provider: string;
+  model: string;
+  contextTokens?: number;
+  resolvedThinkLevel?: ThinkLevel;
+  resolvedFastMode?: boolean;
+  resolvedVerboseLevel: VerboseLevel;
+  resolvedReasoningLevel: ReasoningLevel;
+  resolvedElevatedLevel?: ElevatedLevel;
+  resolveDefaultThinkingLevel: () => Promise<ThinkLevel | undefined>;
+  isGroup: boolean;
+  defaultGroupActivation: () => "always" | "mention";
+  mediaDecisions?: MediaUnderstandingDecision[];
+  taskLineOverride?: string;
+  skipDefaultTaskLookup?: boolean;
+  primaryModelLabelOverride?: string;
+  modelAuthOverride?: string;
+  activeModelAuthOverride?: string;
+  includeTranscriptUsage?: boolean;
+}): Promise<string> {
+>>>>>>> main
   const {
     cfg,
     command,
@@ -303,7 +347,7 @@ export async function buildStatusReply(params: {
     },
     subagentsLine,
     mediaDecisions: params.mediaDecisions,
-    includeTranscriptUsage: false,
+    includeTranscriptUsage: params.includeTranscriptUsage ?? true,
   });
 
   return { text: statusText };

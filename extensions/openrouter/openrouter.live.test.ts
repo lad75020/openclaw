@@ -13,7 +13,7 @@ const LIVE_MODEL_ID =
 const liveEnabled = OPENROUTER_API_KEY.trim().length > 0 && process.env.OPENCLAW_LIVE_TEST === "1";
 const describeLive = liveEnabled ? describe : describe.skip;
 
-const registerOpenRouterPlugin = () =>
+const registerOpenRouterPlugin = async () =>
   registerProviderPlugin({
     plugin,
     id: "openrouter",
@@ -22,7 +22,7 @@ const registerOpenRouterPlugin = () =>
 
 describeLive("openrouter plugin live", () => {
   it("registers an OpenRouter provider that can complete a live request", async () => {
-    const { providers } = registerOpenRouterPlugin();
+    const { providers } = await registerOpenRouterPlugin();
     const provider = requireRegisteredProvider(providers, "openrouter");
 
     const resolved = provider.resolveDynamicModel?.({

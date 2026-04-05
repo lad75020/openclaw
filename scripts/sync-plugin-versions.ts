@@ -5,8 +5,84 @@ type PackageJson = {
   name?: string;
   version?: string;
   devDependencies?: Record<string, string>;
+<<<<<<< HEAD
 };
 
+=======
+  peerDependencies?: Record<string, string>;
+  openclaw?: {
+    install?: {
+      minHostVersion?: string;
+    };
+    compat?: {
+      pluginApi?: string;
+    };
+    build?: {
+      openclawVersion?: string;
+    };
+  };
+};
+
+const OPENCLAW_VERSION_RANGE_RE = /^>=\d{4}\.\d{1,2}\.\d{1,2}(?:[-.][^"\s]+)?$/u;
+
+function syncOpenClawDependencyRange(
+  deps: Record<string, string> | undefined,
+  targetVersion: string,
+): boolean {
+  const current = deps?.openclaw;
+  if (!current || current === "workspace:*" || !OPENCLAW_VERSION_RANGE_RE.test(current)) {
+    return false;
+  }
+  const next = `>=${targetVersion}`;
+  if (current === next) {
+    return false;
+  }
+  deps.openclaw = next;
+  return true;
+}
+
+function syncMinHostVersion(pkg: PackageJson, targetVersion: string): boolean {
+  const installConfig = pkg.openclaw?.install;
+  const current = installConfig?.minHostVersion;
+  if (!current || !OPENCLAW_VERSION_RANGE_RE.test(current)) {
+    return false;
+  }
+  const next = `>=${targetVersion}`;
+  if (current === next) {
+    return false;
+  }
+  installConfig.minHostVersion = next;
+  return true;
+}
+
+function syncPluginApiVersion(pkg: PackageJson, targetVersion: string): boolean {
+  const compat = pkg.openclaw?.compat;
+  const current = compat?.pluginApi;
+  if (!current || !OPENCLAW_VERSION_RANGE_RE.test(current)) {
+    return false;
+  }
+  const next = `>=${targetVersion}`;
+  if (current === next) {
+    return false;
+  }
+  compat.pluginApi = next;
+  return true;
+}
+
+function syncBuildOpenClawVersion(pkg: PackageJson, targetVersion: string): boolean {
+  const build = pkg.openclaw?.build;
+  const current = build?.openclawVersion;
+  if (!current) {
+    return false;
+  }
+  if (current === targetVersion) {
+    return false;
+  }
+  build.openclawVersion = targetVersion;
+  return true;
+}
+
+>>>>>>> main
 function ensureChangelogEntry(changelogPath: string, version: string): boolean {
   if (!existsSync(changelogPath)) {
     return false;
@@ -81,7 +157,23 @@ export function syncPluginVersions(rootDir = resolve(".")) {
     }
 
     const versionChanged = pkg.version !== targetVersion;
+<<<<<<< HEAD
     if (!versionChanged && !removedWorkspaceDevDependency) {
+=======
+    const devDependencyChanged = syncOpenClawDependencyRange(pkg.devDependencies, targetVersion);
+    const peerDependencyChanged = syncOpenClawDependencyRange(pkg.peerDependencies, targetVersion);
+    const minHostVersionChanged = syncMinHostVersion(pkg, targetVersion);
+    const pluginApiChanged = syncPluginApiVersion(pkg, targetVersion);
+    const buildOpenClawVersionChanged = syncBuildOpenClawVersion(pkg, targetVersion);
+    const packageChanged =
+      versionChanged ||
+      devDependencyChanged ||
+      peerDependencyChanged ||
+      minHostVersionChanged ||
+      pluginApiChanged ||
+      buildOpenClawVersionChanged;
+    if (!packageChanged) {
+>>>>>>> main
       skipped.push(pkg.name);
       continue;
     }

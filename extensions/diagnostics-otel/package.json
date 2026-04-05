@@ -1,9 +1,13 @@
 {
   "name": "@openclaw/diagnostics-otel",
 <<<<<<< HEAD
+<<<<<<< HEAD
   "version": "2026.3.31",
 =======
   "version": "2026.4.1-beta.1",
+>>>>>>> main
+=======
+  "version": "2026.4.4",
 >>>>>>> main
   "description": "OpenClaw diagnostics OpenTelemetry exporter",
   "type": "module",
@@ -24,7 +28,14 @@
     "extensions": [
       "./index.ts"
     ],
+    "compat": {
+      "pluginApi": ">=2026.4.4"
+    },
+    "build": {
+      "openclawVersion": "2026.4.4"
+    },
     "release": {
+      "publishToClawHub": true,
       "publishToNpm": true
     }
   }

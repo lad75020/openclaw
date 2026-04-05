@@ -1,13 +1,20 @@
 {
   "name": "@openclaw/openai-provider",
 <<<<<<< HEAD
+<<<<<<< HEAD
   "version": "2026.3.31",
 =======
   "version": "2026.4.1-beta.1",
 >>>>>>> main
+=======
+  "version": "2026.4.4",
+>>>>>>> main
   "private": true,
   "description": "OpenClaw OpenAI provider plugins",
   "type": "module",
+  "dependencies": {
+    "ws": "^8.20.0"
+  },
   "openclaw": {
     "extensions": [
       "./index.ts"

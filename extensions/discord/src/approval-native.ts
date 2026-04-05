@@ -1,8 +1,11 @@
+<<<<<<< HEAD
 import {
   createApproverRestrictedNativeApprovalAdapter,
   doesApprovalRequestMatchChannelAccount,
   resolveApprovalRequestSessionTarget,
 } from "openclaw/plugin-sdk/approval-runtime";
+=======
+>>>>>>> main
 import type { DiscordExecApprovalConfig, OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import type {
   ExecApprovalRequest,
@@ -10,6 +13,15 @@ import type {
   PluginApprovalRequest,
 } from "openclaw/plugin-sdk/infra-runtime";
 import { listDiscordAccountIds, resolveDiscordAccount } from "./accounts.js";
+import {
+  createChannelApproverDmTargetResolver,
+  createChannelNativeOriginTargetResolver,
+  createApproverRestrictedNativeApprovalCapability,
+  splitChannelApprovalCapability,
+  doesApprovalRequestMatchChannelAccount,
+  isChannelExecApprovalClientEnabledFromConfig,
+  matchesApprovalRequestFilters,
+} from "./approval-runtime.js";
 import {
   getDiscordExecApprovalApprovers,
   isDiscordExecApprovalApprover,
@@ -52,6 +64,7 @@ function normalizeDiscordOriginChannelId(value?: string | null): string | null {
   return /^\d+$/.test(trimmed) ? trimmed : null;
 }
 
+<<<<<<< HEAD
 function resolveRequestSessionTarget(params: {
   cfg: OpenClawConfig;
   request: ApprovalRequest;
@@ -64,6 +77,22 @@ function resolveDiscordOriginTarget(params: {
   accountId?: string | null;
   request: ApprovalRequest;
 }) {
+=======
+export function shouldHandleDiscordApprovalRequest(params: {
+  cfg: OpenClawConfig;
+  accountId?: string | null;
+  request: ApprovalRequest;
+  configOverride?: DiscordExecApprovalConfig | null;
+}): boolean {
+  const config =
+    params.configOverride ??
+    resolveDiscordAccount({ cfg: params.cfg, accountId: params.accountId }).config.execApprovals;
+  const approvers = getDiscordExecApprovalApprovers({
+    cfg: params.cfg,
+    accountId: params.accountId,
+    configOverride: params.configOverride,
+  });
+>>>>>>> main
   if (
     !doesApprovalRequestMatchChannelAccount({
       cfg: params.cfg,
@@ -72,6 +101,7 @@ function resolveDiscordOriginTarget(params: {
       accountId: params.accountId,
     })
   ) {
+<<<<<<< HEAD
     return null;
   }
 
@@ -116,24 +146,85 @@ function resolveDiscordOriginTarget(params: {
     return { to: legacyChannelId };
   }
   return null;
+=======
+    return false;
+  }
+  if (
+    !isChannelExecApprovalClientEnabledFromConfig({
+      enabled: config?.enabled,
+      approverCount: approvers.length,
+    })
+  ) {
+    return false;
+  }
+  return matchesApprovalRequestFilters({
+    request: params.request.request,
+    agentFilter: config?.agentFilter,
+    sessionFilter: config?.sessionFilter,
+  });
 }
 
-function resolveDiscordApproverDmTargets(params: {
-  cfg: OpenClawConfig;
-  accountId?: string | null;
-  configOverride?: DiscordExecApprovalConfig | null;
-}) {
-  return getDiscordExecApprovalApprovers({
-    cfg: params.cfg,
-    accountId: params.accountId,
-    configOverride: params.configOverride,
-  }).map((approver) => ({ to: String(approver) }));
+function createDiscordOriginTargetResolver(configOverride?: DiscordExecApprovalConfig | null) {
+  return createChannelNativeOriginTargetResolver({
+    channel: "discord",
+    shouldHandleRequest: ({ cfg, accountId, request }) =>
+      shouldHandleDiscordApprovalRequest({
+        cfg,
+        accountId,
+        request,
+        configOverride,
+      }),
+    resolveTurnSourceTarget: (request) => {
+      const sessionKind = extractDiscordSessionKind(request.request.sessionKey?.trim() || null);
+      const turnSourceChannel = request.request.turnSourceChannel?.trim().toLowerCase() || "";
+      const rawTurnSourceTo = request.request.turnSourceTo?.trim() || "";
+      const turnSourceTo = normalizeDiscordOriginChannelId(rawTurnSourceTo);
+      const hasExplicitOriginTarget = /^(?:channel|group):/i.test(rawTurnSourceTo);
+      if (turnSourceChannel !== "discord" || !turnSourceTo || sessionKind === "dm") {
+        return null;
+      }
+      return hasExplicitOriginTarget || sessionKind === "channel" || sessionKind === "group"
+        ? { to: turnSourceTo }
+        : null;
+    },
+    resolveSessionTarget: (sessionTarget, request) => {
+      const sessionKind = extractDiscordSessionKind(request.request.sessionKey?.trim() || null);
+      if (sessionKind === "dm") {
+        return null;
+      }
+      const targetTo = normalizeDiscordOriginChannelId(sessionTarget.to);
+      return targetTo ? { to: targetTo } : null;
+    },
+    targetsMatch: (a, b) => a.to === b.to,
+    resolveFallbackTarget: (request) => {
+      const sessionKind = extractDiscordSessionKind(request.request.sessionKey?.trim() || null);
+      if (sessionKind === "dm") {
+        return null;
+      }
+      const legacyChannelId = extractDiscordChannelId(request.request.sessionKey?.trim() || null);
+      return legacyChannelId ? { to: legacyChannelId } : null;
+    },
+  });
+>>>>>>> main
 }
 
-export function createDiscordNativeApprovalAdapter(
-  configOverride?: DiscordExecApprovalConfig | null,
-) {
-  return createApproverRestrictedNativeApprovalAdapter({
+function createDiscordApproverDmTargetResolver(configOverride?: DiscordExecApprovalConfig | null) {
+  return createChannelApproverDmTargetResolver({
+    shouldHandleRequest: ({ cfg, accountId, request }) =>
+      shouldHandleDiscordApprovalRequest({
+        cfg,
+        accountId,
+        request,
+        configOverride,
+      }),
+    resolveApprovers: ({ cfg, accountId }) =>
+      getDiscordExecApprovalApprovers({ cfg, accountId, configOverride }),
+    mapApprover: (approver) => ({ to: String(approver) }),
+  });
+}
+
+export function createDiscordApprovalCapability(configOverride?: DiscordExecApprovalConfig | null) {
+  return createApproverRestrictedNativeApprovalCapability({
     channel: "discord",
     channelLabel: "Discord",
     listAccountIds: listDiscordAccountIds,
@@ -147,12 +238,29 @@ export function createDiscordNativeApprovalAdapter(
       configOverride?.target ??
       resolveDiscordAccount({ cfg, accountId }).config.execApprovals?.target ??
       "dm",
-    resolveOriginTarget: ({ cfg, accountId, request }) =>
-      resolveDiscordOriginTarget({ cfg, accountId, request }),
-    resolveApproverDmTargets: ({ cfg, accountId }) =>
-      resolveDiscordApproverDmTargets({ cfg, accountId, configOverride }),
+    resolveOriginTarget: createDiscordOriginTargetResolver(configOverride),
+    resolveApproverDmTargets: createDiscordApproverDmTargetResolver(configOverride),
     notifyOriginWhenDmOnly: true,
   });
 }
 
-export const discordNativeApprovalAdapter = createDiscordNativeApprovalAdapter();
+export function createDiscordNativeApprovalAdapter(
+  configOverride?: DiscordExecApprovalConfig | null,
+) {
+  return splitChannelApprovalCapability(createDiscordApprovalCapability(configOverride));
+}
+
+let cachedDiscordApprovalCapability: ReturnType<typeof createDiscordApprovalCapability> | undefined;
+let cachedDiscordNativeApprovalAdapter:
+  | ReturnType<typeof createDiscordNativeApprovalAdapter>
+  | undefined;
+
+export function getDiscordApprovalCapability() {
+  cachedDiscordApprovalCapability ??= createDiscordApprovalCapability();
+  return cachedDiscordApprovalCapability;
+}
+
+export function getDiscordNativeApprovalAdapter() {
+  cachedDiscordNativeApprovalAdapter ??= createDiscordNativeApprovalAdapter();
+  return cachedDiscordNativeApprovalAdapter;
+}

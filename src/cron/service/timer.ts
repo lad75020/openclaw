@@ -7,7 +7,8 @@ import {
   createRunningTaskRun,
   failTaskRunByRunId,
 } from "../../tasks/task-executor.js";
-import { resolveCronDeliveryPlan } from "../delivery.js";
+import { clearCronJobActive, markCronJobActive } from "../active-jobs.js";
+import { resolveCronDeliveryPlan } from "../delivery-plan.js";
 import { sweepCronRunSessions } from "../session-reaper.js";
 import type {
   CronDeliveryStatus,
@@ -558,6 +559,7 @@ export function applyJobResult(
 }
 
 function applyOutcomeToStoredJob(state: CronServiceState, result: TimedCronRunOutcome): void {
+  clearCronJobActive(result.jobId);
   tryFinishCronTaskRun(state, result);
   const store = state.store;
   if (!store) {
@@ -713,6 +715,7 @@ export async function onTimer(state: CronServiceState) {
       const { id, job } = params;
       const startedAt = state.deps.nowMs();
       job.state.runningAtMs = startedAt;
+      markCronJobActive(job.id);
       emit(state, { jobId: job.id, action: "started", runAtMs: startedAt });
       const jobTimeoutMs = resolveCronJobTimeoutMs(job);
       const taskRunId = tryCreateCronTaskRun({ state, job, startedAt });
@@ -1296,6 +1299,7 @@ export async function executeJob(
   const startedAt = state.deps.nowMs();
   job.state.runningAtMs = startedAt;
   job.state.lastError = undefined;
+  markCronJobActive(job.id);
   emit(state, { jobId: job.id, action: "started", runAtMs: startedAt });
 
   let coreResult: {
@@ -1324,6 +1328,7 @@ export async function executeJob(
     state.store.jobs = state.store.jobs.filter((j) => j.id !== job.id);
     emit(state, { jobId: job.id, action: "removed" });
   }
+  clearCronJobActive(job.id);
 }
 
 function emitJobFinished(

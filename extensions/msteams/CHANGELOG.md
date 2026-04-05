@@ -1,7 +1,16 @@
 # Changelog
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+## 2026.4.4
+
+### Changes
+
+- Version alignment with core OpenClaw release numbers.
+
+>>>>>>> main
 ## 2026.4.1-beta.1
 
 ### Changes

@@ -24,7 +24,7 @@ export type TaskRegistryStore = {
   close?: () => void;
 };
 
-export type TaskRegistryHookEvent =
+export type TaskRegistryObserverEvent =
   | {
       kind: "restored";
       tasks: TaskRecord[];
@@ -40,9 +40,9 @@ export type TaskRegistryHookEvent =
       previous: TaskRecord;
     };
 
-export type TaskRegistryHooks = {
-  // Hooks are incremental/observational. Snapshot persistence belongs to TaskRegistryStore.
-  onEvent?: (event: TaskRegistryHookEvent) => void;
+export type TaskRegistryObservers = {
+  // Observers are incremental/best-effort only. Snapshot persistence belongs to TaskRegistryStore.
+  onEvent?: (event: TaskRegistryObserverEvent) => void;
 };
 
 const defaultTaskRegistryStore: TaskRegistryStore = {
@@ -56,30 +56,30 @@ const defaultTaskRegistryStore: TaskRegistryStore = {
 };
 
 let configuredTaskRegistryStore: TaskRegistryStore = defaultTaskRegistryStore;
-let configuredTaskRegistryHooks: TaskRegistryHooks | null = null;
+let configuredTaskRegistryObservers: TaskRegistryObservers | null = null;
 
 export function getTaskRegistryStore(): TaskRegistryStore {
   return configuredTaskRegistryStore;
 }
 
-export function getTaskRegistryHooks(): TaskRegistryHooks | null {
-  return configuredTaskRegistryHooks;
+export function getTaskRegistryObservers(): TaskRegistryObservers | null {
+  return configuredTaskRegistryObservers;
 }
 
 export function configureTaskRegistryRuntime(params: {
   store?: TaskRegistryStore;
-  hooks?: TaskRegistryHooks | null;
+  observers?: TaskRegistryObservers | null;
 }) {
   if (params.store) {
     configuredTaskRegistryStore = params.store;
   }
-  if ("hooks" in params) {
-    configuredTaskRegistryHooks = params.hooks ?? null;
+  if ("observers" in params) {
+    configuredTaskRegistryObservers = params.observers ?? null;
   }
 }
 
 export function resetTaskRegistryRuntimeForTests() {
   configuredTaskRegistryStore.close?.();
   configuredTaskRegistryStore = defaultTaskRegistryStore;
-  configuredTaskRegistryHooks = null;
+  configuredTaskRegistryObservers = null;
 }

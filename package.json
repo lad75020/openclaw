@@ -1805,7 +1805,7 @@
     "@clack/prompts": "1.4.0",
     "@earendil-works/pi-agent-core": "0.75.4",
     "@earendil-works/pi-ai": "0.75.4",
-    "@earendil-works/pi-coding-agent": "0.75.4",
+    "@earendil-works/pi-coding-agent": "0.79.0",
     "@earendil-works/pi-tui": "0.75.4",
     "@google/genai": "2.5.0",
     "@grammyjs/runner": "2.0.3",
